@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="Expose Devices">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="check_box_preference_1"
+            android:summaryOff="All devices except specified will be exposed"
+            android:summaryOn="Only specified devices will be exposed"
+            android:title="Exposure Specification" />
+        <MultiSelectListPreference
+            android:defaultValue="@android:array/config_keySystemUuidMapping"
+            android:entries="@android:array/config_keySystemUuidMapping"
+            android:entryValues="@android:array/config_keySystemUuidMapping"
+            android:key="multi_select_list_preference_1"
+            android:title="Specify Devices" />
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Sensor Configuration">
+
+        <EditTextPreference
+            android:defaultValue="Default value"
+            android:dialogIcon="@mipmap/ic_launcher"
+            android:icon="@mipmap/ic_launcher"
+            android:key="edit_text_preference_1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="this is a summary"
+            android:title="Edit text preference" />
+    </PreferenceCategory>
+    <PreferenceScreen></PreferenceScreen>
+</PreferenceScreen>
