@@ -3,6 +3,7 @@ package com.autobridge.android
 import android.content.Context
 import android.hardware.*
 import android.media.MediaRecorder
+import android.util.Log
 import kotlin.coroutines.experimental.buildSequence
 
 abstract class Device(val name: String) {
@@ -38,6 +39,9 @@ abstract class Device(val name: String) {
     internal class LightDevice(name: String): Device(name) {
         
     }
+    //private val textToSpeech: TextToSpeech = TextToSpeech(this, null);
+    //this.textToSpeech.setSpeechRate(0.9f)
+    //this.textToSpeech.speak(message, TextToSpeech.QUEUE_ADD, null)
 
     internal abstract class SensorDevice(name: String) : Device(name) {
         private var isActive: Boolean = false
@@ -82,6 +86,9 @@ abstract class Device(val name: String) {
                 while (!this.isDeactivating) {
                     this.setNewRawValue(java.util.Date().getTime(), this.mediaRecorder.getMaxAmplitude().toDouble());
                     Thread.sleep(250);
+
+                    //val max = 20 * Math.log10(this@Service.mediaRecorder.maxAmplitude.toDouble() / 32767)
+                    //Log.i("mediarecorder", "amplitude: $max")
                 }
             }
         }
