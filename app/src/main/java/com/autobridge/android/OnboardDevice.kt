@@ -3,10 +3,11 @@ package com.autobridge.android
 import android.content.Context
 import android.hardware.*
 import android.media.MediaRecorder
-import android.util.Log
 import kotlin.coroutines.experimental.buildSequence
 
-abstract class Device(val name: String) {
+data class DeviceDefinition(val id: String, val ocfDeviceType: String, val name: String);
+
+abstract class OnboardDevice(val name: String) {
     // flashlight
     // camera take pictures: front and back
     // camera motion sensor: front and back
@@ -24,7 +25,7 @@ abstract class Device(val name: String) {
     }
 
     companion object {
-        fun createDevices(): Sequence<Device> {
+        fun createDevices(): Sequence<OnboardDevice> {
             return buildSequence {
                 yield(HardwareSensorDevice("accelerometer", "acceleration", Sensor.TYPE_LINEAR_ACCELERATION));
                 yield(HardwareSensorDevice("thermometer", "temperature", Sensor.TYPE_AMBIENT_TEMPERATURE));
@@ -36,14 +37,14 @@ abstract class Device(val name: String) {
         }
     }
 
-    internal class LightDevice(name: String): Device(name) {
+    internal class LightDevice(name: String): OnboardDevice(name) {
         
     }
     //private val textToSpeech: TextToSpeech = TextToSpeech(this, null);
     //this.textToSpeech.setSpeechRate(0.9f)
     //this.textToSpeech.speak(message, TextToSpeech.QUEUE_ADD, null)
 
-    internal abstract class SensorDevice(name: String) : Device(name) {
+    internal abstract class SensorDevice(name: String) : OnboardDevice(name) {
         private var isActive: Boolean = false
 
         fun setActive(context: Context, value: Boolean) {

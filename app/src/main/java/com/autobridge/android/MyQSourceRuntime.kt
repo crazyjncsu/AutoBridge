@@ -1,43 +1,56 @@
 package com.autobridge.android
 
+import android.util.Log
 import org.json.JSONObject
-import java.io.IOException
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URI
+import java.lang.IllegalArgumentException
 
 
 class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : PollingDeviceSourceRuntime(parameters, listener) {
     private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx";
 
     override fun poll() {
-        var devices = this.performMyQHttpRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
+        fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
+                .getJSONArray("Attributes")
+                .toJSONObjectSequence()
+                .first { it.getString("AttributeDisplayName") == "desc" }
+                .getString("Value");
+
+        val deviceInfos = this.performMyQRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
                 .getJSONArray("Devices")
                 .toJSONObjectSequence()
                 .filter { it.getString("MyQDeviceTypeId") == "2" }
                 .map {
                     object {
-                        val deviceID = it.getString("MyQDeviceId")
-                        val name = it.getJSONArray("Attributes")
-                                .toJSONObjectSequence()
-                                .first { it.getString("AttributeDisplayName") == "desc" }
-                                .getString("Value")
-                        val openState = it.getJSONArray("Attributes")
-                                .toJSONObjectSequence()
-                                .first { it.getString("AttributeDisplayName") == "doorstate" }
-                                .getString("Value")
+                        val definition = DeviceDefinition(
+                                it.getString("MyQDeviceId"),
+                                "com.autobridge.garageDoor",
+                                getAttributeValueFunc(it, "desc")
+                        )
+
+                        val state = mapOf("openState" to if (getAttributeValueFunc(it, "doorstate") == "2") "Closed" else "Open")
                     }
                 }
                 .toList();
 
-        //this.listener.onDeviceStateChanged(this.parameters.id, )
+        this.listener.onDevicesDiscovered(
+                this,
+                deviceInfos.map { it.definition }.toList()
+        );
+
+        deviceInfos.forEach { deviceInfo ->
+            deviceInfo.state.forEach {
+                this.listener.onDeviceStateDiscovered(this, deviceInfo.definition.id, it.key, it.value);
+            }
+        }
     }
 
     override fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
-        var attributeName = ""; // openState, Open or Closed
-        var attributeValue = "";
+        var attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException();
+        var attributeValue = if (propertyValue == "Opened") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException();
 
-        this.performMyQHttpRequestWithLoginHandling(
+        // TODO value could need to be actual Int rather than String according to reference
+
+        this.performMyQRequestWithLoginHandling(
                 "PUT",
                 "DeviceAttribute/PutDeviceAttribute",
                 mapOf(
@@ -50,14 +63,18 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
         );
     }
 
-    private fun performMyQHttpRequestWithLoginHandling(method: String, pathPart: String, bodyMap: Map<String, String>? = null): JSONObject {
+    private fun performMyQRequestWithLoginHandling(
+            method: String,
+            pathPart: String,
+            bodyMap: Map<String, String>? = null
+    ): JSONObject {
         while (true) {
-            var responseObject = this.performMyQHttpRequest(method, pathPart, bodyMap);
+            var responseObject = this.performMyQRequest(method, pathPart, bodyMap);
 
-            if (responseObject.optString("error") != "-33336")
+            if (responseObject.optString("error") != "-33336" && responseObject.optString("ReturnCode") != "216")
                 return responseObject;
 
-            var loginResponseObject = this.performMyQHttpRequest(
+            var loginResponseObject = this.performMyQRequest(
                     "POST",
                     "User/Validate",
                     mapOf(
@@ -67,61 +84,30 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
             );
 
             this.parameters.state.put("securityToken", loginResponseObject.getString("SecurityToken"));
+
+            Thread.sleep(4000); // TODO let's try to see if necessary?
         }
     }
 
-    private fun performMyQHttpRequest(method: String, pathPart: String, bodyMap: Map<String, String>? = null): JSONObject {
-        return this.performJsonHttpRequest(
-                method,
-                "https",
-                "myqexternal.myqdevice.com",
-                //"10.0.2.2:1000",
-                "/api/v4/" + pathPart,
-                mapOf(
-                        "User-Agent" to "Chamberlain/3.73",
-                        "BrandId" to "2",
-                        "ApiVersion" to "4.1",
-                        "Culture" to "en",
-                        "MyQApplicationId" to applicationID,
-                        "SecurityToken" to this.parameters.state.optString("securityToken", "")
-                ),
-                mapOf(
-                        //"appId" to applicationID,
-                        //"filterOn" to "true", // not sure what this is
-                        //"securityToken" to securityToken
-                ),
-                if (bodyMap == null) null else JSONObject(bodyMap)
-        );
-    }
-
-    private fun performJsonHttpRequest(
+    private fun performMyQRequest(
             method: String,
-            scheme: String,
-            authority: String,
-            path: String,
-            headerMap: Map<String, String>,
-            queryStringMap: Map<String, String>,
-            bodyObject: JSONObject?
-    ): JSONObject {
-        with(URI(scheme, authority, path, queryStringMap.toQueryString(), null).toURL().openConnection() as HttpURLConnection) {
-            try {
-                requestMethod = method;
-                doInput = true;
-
-                headerMap.forEach { addRequestProperty(it.key, it.value); };
-
-                if (bodyObject != null) {
-                    addRequestProperty("Content-Type", "application/json");
-                    outputStream.use { it.write(bodyObject.toString().toByteArray()); }
-                }
-
-                if (responseCode != 200)
-                    throw IOException();
-
-                (if (responseCode >= 400) errorStream else inputStream).use { return JSONObject(InputStreamReader(it).readText()) }
-            } finally {
-                disconnect();
-            }
-        }
-    }
+            pathPart: String,
+            bodyMap: Map<String, String>? = null
+    ) = performJsonHttpRequest(
+            method,
+            "https",
+            "myqexternal.myqdevice.com",
+            //"10.0.2.2:1000",
+            "/api/v4/" + pathPart,
+            mapOf(
+                    "User-Agent" to "Chamberlain/3.73",
+                    "BrandId" to "2",
+                    "ApiVersion" to "4.1",
+                    "Culture" to "en",
+                    "MyQApplicationId" to applicationID,
+                    "SecurityToken" to this.parameters.state.optString("securityToken", "")
+            ),
+            mapOf(),
+            bodyMap?.let { JSONObject(it) }
+    );
 }

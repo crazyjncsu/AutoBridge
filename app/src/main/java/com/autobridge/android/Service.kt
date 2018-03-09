@@ -21,30 +21,76 @@ import java.io.InputStreamReader
 
 import fi.iki.elonen.NanoHTTPD
 
-class Service : PersistentService() {
+class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
+    override fun onDeviceSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
+        // TODO
+    }
+
+    override fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
+        this.targetToSourcesMap[targetRuntime]!!
+                .filter { it.parameters.id == sourceID }
+                .forEach { it.setDeviceState(deviceID, propertyName, propertyValue) }
+    }
+
+    override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String) {
+        this.sourceToTargetsMap[sourceRuntime]!!
+                .forEach { it.syncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) };
+    }
+
+    override fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>) {
+        Log.v("Bridge", "Discovered devices: $devices")
+        this.sourceToTargetsMap[sourceRuntime]!!
+                .forEach { it.syncDevices(sourceRuntime.parameters.id, devices) }
+    }
+
     private val webServer: WebServer = WebServer();
 
-    var myq: MyQSourceRuntime = MyQSourceRuntime(RuntimeParameters("asdf", JSONObject(mapOf("username" to "jordanview@outlook.com", "password" to "Ncsu1ncsu")), JSONObject()), this);
+    private val sources = arrayOf(
+            MyQSourceRuntime(
+                    RuntimeParameters(
+                            "2345",
+                            JSONObject(mapOf("username" to "jordanview@outlook.com", "password" to "Ncsu1ncsu")),
+                            JSONObject()
+                    ),
+                    this
+            )
+    );
 
+    private val targets = arrayOf(
+            SmartThingsTargetRuntime(
+                    RuntimeParameters(
+                            "3242",
+                            JSONObject(mapOf<String, String>()),
+                            JSONObject(mapOf("authority" to "192.168.1.65:39500"))
+                    ),
+                    this
+            )
+    );
+
+    private val runtimes = this.sources.asIterable<RuntimeBase>().plus(this.targets).toList();
+
+    private val sourceToTargetsMap = mapOf(
+            this.sources[0] to arrayOf(this.targets[0])
+    );
+
+    private val targetToSourcesMap = mapOf(
+            this.targets[0] to arrayOf(this.sources[0])
+    )
 
     override fun onCreate() {
         super.onCreate()
 
-        try {
-            this.webServer.start()
-            Log.i("Service", "Started")
-        } catch (ex: IOException) {
-            // don't care?
-            Log.e("Service", ex.message)
-        }
+        this.webServer.start()
 
-        this.myq.start();
+        this.runtimes.forEach { it.start() }
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         this.webServer.stop()
+
+        this.runtimes.forEach { it.stop() }
     }
 
     private inner class WebServer : NanoHTTPD(1035) {
@@ -60,7 +106,7 @@ class Service : PersistentService() {
 
                 return NanoHTTPD.newFixedLengthResponse("");
             } catch (ex: Exception) {
-                return fi.iki.elonen.NanoHTTPD.newFixedLengthResponse(
+                return NanoHTTPD.newFixedLengthResponse(
                         NanoHTTPD.Response.Status.INTERNAL_ERROR,
                         "application/json",
                         JSONObject(mapOf(
