@@ -12,9 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import kotlin.coroutines.experimental.buildSequence
 
-fun Map<String, String>.toQueryString(): String {
-    return URLEncodedUtils.format(this.entries.map { BasicNameValuePair(it.key, it.value) }, "UTF-8");
-}
+fun Map<String, String>.toQueryString() = URLEncodedUtils.format(this.entries.map { BasicNameValuePair(it.key, it.value) }, "UTF-8");
 
 fun JSONArray.toJSONObjectSequence(): Sequence<JSONObject> {
     var length = this.length();
