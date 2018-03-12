@@ -5,9 +5,16 @@ import android.hardware.*
 import android.media.MediaRecorder
 import kotlin.coroutines.experimental.buildSequence
 
-data class DeviceDefinition(val id: String, val ocfDeviceType: String, val name: String);
+data class DeviceDefinition(val id: String, val type: DeviceType, val name: String);
 
-abstract class OnboardDevice(val name: String) {
+class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener) {
+    override fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+}
+
+abstract class OnboardDeviceRuntime(val name: String) {
     // flashlight
     // camera take pictures: front and back
     // camera motion sensor: front and back
@@ -20,31 +27,33 @@ abstract class OnboardDevice(val name: String) {
 
     // contact id sender
     // lutron integration
-    open fun executeCommand(name: String, argument: String) {
-
-    }
 
     companion object {
-        fun createDevices(): Sequence<OnboardDevice> {
+        fun createDevices(): Sequence<OnboardDeviceRuntime> {
             return buildSequence {
-                yield(HardwareSensorDevice("accelerometer", "acceleration", Sensor.TYPE_LINEAR_ACCELERATION));
-                yield(HardwareSensorDevice("thermometer", "temperature", Sensor.TYPE_AMBIENT_TEMPERATURE));
-                yield(HardwareSensorDevice("lightMeter", "illumination", Sensor.TYPE_LIGHT));
-                yield(HardwareSensorDevice("humidityMeter", "relativeHumidity", Sensor.TYPE_RELATIVE_HUMIDITY));
-                yield(HardwareSensorDevice("barometer", "pressure", Sensor.TYPE_PRESSURE));
-                yield(SoundLevelSensorDevice("soundLevelMeter", "soundLevel"));
+                yield(HardwareSensorDeviceRuntime("accelerometer", "acceleration", Sensor.TYPE_LINEAR_ACCELERATION));
+                yield(HardwareSensorDeviceRuntime("thermometer", "temperature", Sensor.TYPE_AMBIENT_TEMPERATURE));
+                yield(HardwareSensorDeviceRuntime("lightMeter", "illumination", Sensor.TYPE_LIGHT));
+                yield(HardwareSensorDeviceRuntime("humidityMeter", "humidity", Sensor.TYPE_RELATIVE_HUMIDITY));
+                yield(HardwareSensorDeviceRuntime("barometer", "pressure", Sensor.TYPE_PRESSURE));
+                yield(SoundLevelSensorDeviceRuntime("soundLevelMeter", "soundPressureLevel"));
+                yield(SpeechSynthesizerDeviceRuntime("speechSynthesizer"));
             }
         }
     }
 
-    internal class LightDevice(name: String): OnboardDevice(name) {
-        
+    internal class SpeechSynthesizerDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
+
+    }
+
+    internal class LightDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
+
     }
     //private val textToSpeech: TextToSpeech = TextToSpeech(this, null);
     //this.textToSpeech.setSpeechRate(0.9f)
     //this.textToSpeech.speak(message, TextToSpeech.QUEUE_ADD, null)
 
-    internal abstract class SensorDevice(name: String) : OnboardDevice(name) {
+    internal abstract class SensorDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
         private var isActive: Boolean = false
 
         fun setActive(context: Context, value: Boolean) {
@@ -57,7 +66,7 @@ abstract class OnboardDevice(val name: String) {
         protected open fun onActivateOrDeactivate(context: Context, value: Boolean) {}
     }
 
-    internal open class ValueSensorDevice(name: String, val valuePropertyName: String) : SensorDevice(name) {
+    internal open class ValueSensorDeviceRuntime(name: String, val valuePropertyName: String) : SensorDeviceRuntime(name) {
         var value = 0.0
             private set
 
@@ -70,7 +79,7 @@ abstract class OnboardDevice(val name: String) {
         }
     }
 
-    internal class SoundLevelSensorDevice(name: String, valuePropertyName: String) : ValueSensorDevice(name, valuePropertyName) {
+    internal class SoundLevelSensorDeviceRuntime(name: String, valuePropertyName: String) : ValueSensorDeviceRuntime(name, valuePropertyName) {
         private val mediaRecorder: MediaRecorder;
         private var isDeactivating = false;
 
@@ -108,7 +117,7 @@ abstract class OnboardDevice(val name: String) {
         }
     }
 
-    internal class HardwareSensorDevice(name: String, valuePropertyName: String, val sensorType: Int) : ValueSensorDevice(name, valuePropertyName), SensorEventListener {
+    internal class HardwareSensorDeviceRuntime(name: String, valuePropertyName: String, val sensorType: Int) : ValueSensorDeviceRuntime(name, valuePropertyName), SensorEventListener {
         override fun onActivateOrDeactivate(context: Context, value: Boolean) {
             val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
             val sensor = sensorManager.getDefaultSensor(this.sensorType);

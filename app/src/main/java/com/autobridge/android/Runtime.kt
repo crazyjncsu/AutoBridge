@@ -16,6 +16,7 @@ abstract class RuntimeBase(val parameters: RuntimeParameters) {
 }
 
 abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
+    abstract fun startDiscoverDevices();
     abstract fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String);
 
     interface Listener {
@@ -25,7 +26,8 @@ abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: 
 }
 
 abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
-    abstract fun syncDevices(sourceID: String, devices: List<DeviceDefinition>);
+    abstract fun syncSources(sourceIDs: List<String>);
+    abstract fun syncSourceDevices(sourceID: String, devices: List<DeviceDefinition>);
     abstract fun syncDeviceState(sourceID: String, deviceID: String, propertyName: String, propertyValue: String);
 
     interface Listener {
@@ -37,7 +39,7 @@ abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: 
 abstract class PollingDeviceSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener) {
     private val timer = Timer();
 
-    override fun start() = this.timer.scheduleAtFixedRate(
+    override fun start() = this.timer.schedule(
             object : TimerTask() {
                 override fun run() {
                     tryLog { poll() }

@@ -2,17 +2,18 @@ package com.autobridge.android
 
 import android.util.Log
 import org.json.JSONObject
+import java.io.IOException
 import java.lang.IllegalArgumentException
 
 
 class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : PollingDeviceSourceRuntime(parameters, listener) {
     private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx";
 
-    override fun poll() {
+    override fun startDiscoverDevices() {
         fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
                 .getJSONArray("Attributes")
                 .toJSONObjectSequence()
-                .first { it.getString("AttributeDisplayName") == "desc" }
+                .first { it.getString("AttributeDisplayName") == displayName }
                 .getString("Value");
 
         val deviceInfos = this.performMyQRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
@@ -23,7 +24,7 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
                     object {
                         val definition = DeviceDefinition(
                                 it.getString("MyQDeviceId"),
-                                "com.autobridge.garageDoor",
+                                DeviceType.GARAGE_DOOR_OPENER,
                                 getAttributeValueFunc(it, "desc")
                         )
 
@@ -44,18 +45,16 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
         }
     }
 
+    override fun poll() = this.startDiscoverDevices();
+
     override fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
         var attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException();
-        var attributeValue = if (propertyValue == "Opened") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException();
-
-        // TODO value could need to be actual Int rather than String according to reference
+        var attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException();
 
         this.performMyQRequestWithLoginHandling(
                 "PUT",
                 "DeviceAttribute/PutDeviceAttribute",
                 mapOf(
-                        //"ApplicationId" to applicationID,
-                        //"SecurityToken" to this.parameters.state.optString("securityToken", ""),
                         "MyQDeviceId" to deviceID,
                         "AttributeName" to attributeName,
                         "AttributeValue" to attributeValue
@@ -68,11 +67,16 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
             pathPart: String,
             bodyMap: Map<String, String>? = null
     ): JSONObject {
+        var attemptCount = 0;
+
         while (true) {
             var responseObject = this.performMyQRequest(method, pathPart, bodyMap);
 
             if (responseObject.optString("error") != "-33336" && responseObject.optString("ReturnCode") != "216")
                 return responseObject;
+
+            if (attemptCount++ > 4)
+                throw IOException(); // TODO rename, etc
 
             var loginResponseObject = this.performMyQRequest(
                     "POST",
