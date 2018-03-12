@@ -3,18 +3,38 @@ package com.autobridge.android
 import android.content.Context
 import android.hardware.*
 import android.media.MediaRecorder
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import kotlin.coroutines.experimental.buildSequence
 
-data class DeviceDefinition(val id: String, val type: DeviceType, val name: String);
-
-class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener) {
-    override fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener), OnboardDeviceRuntime.Listener {
+    override fun onStateDiscovered(deviceRuntime: OnboardDeviceRuntime, propertyName: String, propertyValue: String) {
+        this.listener.onDeviceStateDiscovered(this, deviceRuntime, propertyName, propertyValue)
     }
 
+
+    override fun startDiscoverDevices() {
+        this.listener.onDevicesDiscovered(this, this.createDevices())
+    }
+
+    override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
+
+    }
+
+    private fun createDevices(): Sequence<OnboardDeviceRuntime> {
+        return buildSequence {
+            //            yield(OnboardDeviceRuntime.HardwareSensorDeviceRuntime("accelerometer", "acceleration", Sensor.TYPE_LINEAR_ACCELERATION));
+//            yield(OnboardDeviceRuntime.HardwareSensorDeviceRuntime("thermometer", "temperature", Sensor.TYPE_AMBIENT_TEMPERATURE));
+//            yield(OnboardDeviceRuntime.HardwareSensorDeviceRuntime("lightMeter", "illumination", Sensor.TYPE_LIGHT));
+//            yield(OnboardDeviceRuntime.HardwareSensorDeviceRuntime("humidityMeter", "humidity", Sensor.TYPE_RELATIVE_HUMIDITY));
+//            yield(OnboardDeviceRuntime.HardwareSensorDeviceRuntime("barometer", "pressure", Sensor.TYPE_PRESSURE));
+//            yield(OnboardDeviceRuntime.SoundLevelSensorDeviceRuntime("soundLevelMeter", "soundPressureLevel"));
+            yield(OnboardDeviceRuntime.SpeechSynthesizerDeviceRuntime("speechSynthesizer", this@OnboardSourceRuntime))
+        }
+    }
 }
 
-abstract class OnboardDeviceRuntime(val name: String) {
+abstract class OnboardDeviceRuntime(val name: String, val listener: Listener) {
     // flashlight
     // camera take pictures: front and back
     // camera motion sensor: front and back
@@ -28,30 +48,30 @@ abstract class OnboardDeviceRuntime(val name: String) {
     // contact id sender
     // lutron integration
 
-    companion object {
-        fun createDevices(): Sequence<OnboardDeviceRuntime> {
-            return buildSequence {
-                yield(HardwareSensorDeviceRuntime("accelerometer", "acceleration", Sensor.TYPE_LINEAR_ACCELERATION));
-                yield(HardwareSensorDeviceRuntime("thermometer", "temperature", Sensor.TYPE_AMBIENT_TEMPERATURE));
-                yield(HardwareSensorDeviceRuntime("lightMeter", "illumination", Sensor.TYPE_LIGHT));
-                yield(HardwareSensorDeviceRuntime("humidityMeter", "humidity", Sensor.TYPE_RELATIVE_HUMIDITY));
-                yield(HardwareSensorDeviceRuntime("barometer", "pressure", Sensor.TYPE_PRESSURE));
-                yield(SoundLevelSensorDeviceRuntime("soundLevelMeter", "soundPressureLevel"));
-                yield(SpeechSynthesizerDeviceRuntime("speechSynthesizer"));
-            }
+    interface Listener {
+        fun onStateDiscovered(deviceRuntime: OnboardDeviceRuntime, propertyName: String, propertyValue: String)
+    }
+
+    abstract fun startSetState(propertyName: String, propertyValue: String);
+
+    internal class SpeechSynthesizerDeviceRuntime(name: String, listener: Listener) : OnboardDeviceRuntime(name, listener), TextToSpeech.OnInitListener {
+        override fun onInit(p0: Int) {
+            this.textToSpeech.setSpeechRate(0.9f)
+            this.textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onDone(p0: String?) = this@SpeechSynthesizerDeviceRuntime.listener.onStateDiscovered(this@SpeechSynthesizerDeviceRuntime, "utterance", "");
+                override fun onError(p0: String?) {}
+                override fun onStart(p0: String?) {}
+
+            })
+        }
+
+        private val textToSpeech: TextToSpeech = TextToSpeech(null, this);
+
+        override fun startSetState(propertyName: String, propertyValue: String) {
+            this.textToSpeech.speak(propertyValue, TextToSpeech.QUEUE_ADD, null)
+            this.listener.onStateDiscovered(this, propertyName, propertyValue)
         }
     }
-
-    internal class SpeechSynthesizerDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
-
-    }
-
-    internal class LightDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
-
-    }
-    //private val textToSpeech: TextToSpeech = TextToSpeech(this, null);
-    //this.textToSpeech.setSpeechRate(0.9f)
-    //this.textToSpeech.speak(message, TextToSpeech.QUEUE_ADD, null)
 
     internal abstract class SensorDeviceRuntime(name: String) : OnboardDeviceRuntime(name) {
         private var isActive: Boolean = false
@@ -62,6 +82,8 @@ abstract class OnboardDeviceRuntime(val name: String) {
 
             this.isActive = value
         }
+
+        override fun startSetState(propertyName: String, propertyValue: String) {}
 
         protected open fun onActivateOrDeactivate(context: Context, value: Boolean) {}
     }

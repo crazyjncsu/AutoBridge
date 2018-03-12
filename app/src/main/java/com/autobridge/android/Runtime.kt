@@ -7,7 +7,9 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.*
 
-class RuntimeParameters(val id: String, val configuration: JSONObject, val state: JSONObject);
+data class DeviceDefinition(val id: String, val type: DeviceType, val name: String)
+
+data class RuntimeParameters(val id: String, val configuration: JSONObject, val state: JSONObject);
 
 abstract class RuntimeBase(val parameters: RuntimeParameters) {
     open fun start() {}
@@ -17,7 +19,7 @@ abstract class RuntimeBase(val parameters: RuntimeParameters) {
 
 abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
     abstract fun startDiscoverDevices();
-    abstract fun setDeviceState(deviceID: String, propertyName: String, propertyValue: String);
+    abstract fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String);
 
     interface Listener {
         fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String);
@@ -48,7 +50,6 @@ abstract class PollingDeviceSourceRuntime(parameters: RuntimeParameters, listene
             0,
             20_000
     )
-
 
     override fun stop() = this.timer.cancel();
 

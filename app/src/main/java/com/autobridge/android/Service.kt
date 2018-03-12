@@ -102,7 +102,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     override fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
-                .forEach { it.setDeviceState(deviceID, propertyName, propertyValue) }
+                .forEach { it.startSetDeviceState(deviceID, propertyName, propertyValue) }
     }
 
     override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String) {

@@ -18,5 +18,6 @@ enum class ResourceType(val ocfResourceType: String) {
 }
 
 enum class ResourceTypeProperty(val resourceType: ResourceType, propertyName: String) {
-    DOOR_OPEN_STATE(ResourceType.DOOR, "openState");
+    DOOR_OPEN_STATE(ResourceType.DOOR, "openState"),
+    SPEECH_TTS_UTTERANCE(ResourceType.SPEECH_TTS, "utterance")
 }
