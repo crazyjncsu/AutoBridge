@@ -1,5 +1,6 @@
 package com.autobridge.android
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
@@ -10,7 +11,7 @@ import fi.iki.elonen.NanoHTTPD
 import java.util.*
 
 class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
-    private val timer = Timer();
+    private val timer = Timer()
 
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
@@ -24,7 +25,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
             return JSONObject()
         }
-    };
+    }
 
     private val sourceRuntimes = arrayOf(
             MyQSourceRuntime(
@@ -43,7 +44,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                     ),
                     this
             )
-    );
+    )
 
     private val targetRuntimes = arrayOf(
             SmartThingsTargetRuntime(
@@ -54,14 +55,14 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                     ),
                     this
             )
-    );
+    )
 
-    private val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList();
+    private val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
 
     private val sourceToTargetsMap = mapOf(
             this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0])
-    );
+    )
 
     private val targetToSourcesMap = mapOf(
             this.targetRuntimes[0] to this.sourceRuntimes
@@ -70,7 +71,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     override fun onCreate() {
         super.onCreate()
         this.webServer.start()
-        this.runtimes.forEach { it.start() }
+        this.runtimes.forEach { it.startOrStop(true, this.baseContext) }
         this.sourceRuntimes.forEach { it.startDiscoverDevices() }
         this.timer.schedule(object : TimerTask() {
             override fun run() {
@@ -89,7 +90,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     override fun onDestroy() {
         super.onDestroy()
         this.webServer.stop()
-        this.runtimes.forEach { it.stop() }
+        this.runtimes.forEach { it.startOrStop(false, this.baseContext) }
         this.timer.cancel()
     }
 
@@ -107,7 +108,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
     override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String) {
         this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.syncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) };
+                .forEach { it.syncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) }
     }
 
     override fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>) {
@@ -117,30 +118,31 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     }
 }
 
+@SuppressLint("Registered")
 open class PersistentService : android.app.Service() {
     override fun onBind(intent: Intent): IBinder? {
-        return null;
+        return null
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        return android.app.Service.START_STICKY;
+        return android.app.Service.START_STICKY
     }
 }
 
-open abstract class WebServer(port: Int) : NanoHTTPD(port) {
-    abstract fun processJsonRequest(requestObject: JSONObject): JSONObject;
+abstract class WebServer(port: Int) : NanoHTTPD(port) {
+    abstract fun processJsonRequest(requestObject: JSONObject): JSONObject
 
     override fun serve(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response {
         try {
             // this whole parsing with the parseBody is real crap API
             // as we tried to just use the input stream, but had issues with sockets over-reading, etc
-            var map = HashMap<String, String>()
+            val map = HashMap<String, String>()
             session.parseBody(map)
 
-            val requestObject = JSONObject(map["postData"]);
-            val responseObject = this.processJsonRequest(requestObject);
+            val requestObject = JSONObject(map["postData"])
+            val responseObject = this.processJsonRequest(requestObject)
 
-            return NanoHTTPD.newFixedLengthResponse(responseObject.toString());
+            return NanoHTTPD.newFixedLengthResponse(responseObject.toString())
         } catch (ex: Exception) {
             Log.e("WebServer", ex.message, ex)
 
@@ -152,7 +154,7 @@ open abstract class WebServer(port: Int) : NanoHTTPD(port) {
                             "message" to ex.message,
                             "detail" to ex.toString()
                     )).toString()
-            );
+            )
         }
     }
 }

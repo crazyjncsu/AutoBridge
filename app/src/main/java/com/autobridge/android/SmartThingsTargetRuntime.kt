@@ -3,29 +3,27 @@ package com.autobridge.android
 import org.json.JSONObject
 import org.json.JSONArray
 
-private val ocfDeviceTypeToSmartThingsInfoMap = mapOf(
-        DeviceType.GARAGE_DOOR_OPENER to Pair("autobridge/child", "Garage Door Opener")
-)
-
 private val propertyNameValueToSmartThingsMap = mapOf(
         Pair("openState", "Open") to Pair("door", "open"),
-        Pair("openState", "Closed") to Pair("door", "closed")
+        Pair("openState", "Closed") to Pair("door", "closed"),
+        Pair("value", "true") to Pair("switch", "on"),
+        Pair("value", "false") to Pair("swtich", "off")
 )
 
 private val smartThingsToPropertyNameValueMap = propertyNameValueToSmartThingsMap.entries.associateBy({ it.value }) { it.key }
 
 class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceTargetRuntime(parameters, listener) {
     override fun processMessage(message: JSONObject) {
-        val propertyName = message.getString("propertyName");
-        val propertyValue = message.getString("propertyValue");
-        val mappedProperty = smartThingsToPropertyNameValueMap[Pair(propertyName, propertyValue)];
+        val propertyName = message.getString("propertyName")
+        val propertyValue = message.getString("propertyValue")
+        val mappedProperty = smartThingsToPropertyNameValueMap[Pair(propertyName, propertyValue)]
 
         this.listener.onDeviceStateChangeRequest(
                 this,
                 message.getString("sourceID"),
                 message.getString("deviceID"),
-                if (mappedProperty == null) propertyName else mappedProperty.first,
-                if (mappedProperty == null) propertyValue else mappedProperty.second
+                mappedProperty?.first ?: propertyName,
+                mappedProperty?.second ?: propertyValue
         )
     }
 
@@ -36,7 +34,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
                         "targetID" to this.parameters.id,
                         "sourceIDs" to JSONArray(sourceIDs)
                 ))
-        );
+        )
     }
 
     override fun syncSourceDevices(sourceID: String, devices: List<DeviceDefinition>) {
@@ -48,17 +46,17 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
                         "devices" to devices.map {
                             JSONObject(mapOf(
                                     "deviceID" to it.id,
-                                    "namespace" to ocfDeviceTypeToSmartThingsInfoMap.getValue(it.type).first,
-                                    "typeName" to ocfDeviceTypeToSmartThingsInfoMap.getValue(it.type).second,
+                                    "namespace" to "autobridge/child",
+                                    "typeName" to it.type.displayName,
                                     "name" to it.name
                             ))
                         }
                 ))
-        );
+        )
     }
 
     override fun syncDeviceState(sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
-        val mappedProperty = propertyNameValueToSmartThingsMap[Pair(propertyName, propertyValue)];
+        val mappedProperty = propertyNameValueToSmartThingsMap[Pair(propertyName, propertyValue)]
 
         this.performSmartThingsRequest(
                 JSONObject(mapOf(
@@ -66,18 +64,18 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
                         "targetID" to this.parameters.id,
                         "sourceID" to sourceID,
                         "deviceID" to deviceID,
-                        "propertyName" to if (mappedProperty == null) propertyName else mappedProperty.first,
-                        "propertyValue" to if (mappedProperty == null) propertyValue else mappedProperty.second
+                        "propertyName" to (mappedProperty?.first ?: propertyName),
+                        "propertyValue" to (mappedProperty?.second ?: propertyValue)
                 ))
         )
-    };
+    }
 
-    fun performSmartThingsRequest(bodyObject: JSONObject) = performJsonHttpRequest(
+    private fun performSmartThingsRequest(bodyObject: JSONObject) = performJsonHttpRequest(
             "POST",
             "http",
             this.parameters.state.getString("authority"),
             //"10.0.2.2:1000",
             "/auto-bridge",
             bodyObject = bodyObject
-    );
+    )
 }

@@ -1,20 +1,19 @@
 package com.autobridge.android
 
-import android.util.Log
 import org.json.JSONObject
 import java.io.IOException
 import java.lang.IllegalArgumentException
 
 
 class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : PollingDeviceSourceRuntime(parameters, listener) {
-    private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx";
+    private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
 
     override fun startDiscoverDevices() {
         fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
                 .getJSONArray("Attributes")
                 .toJSONObjectSequence()
                 .first { it.getString("AttributeDisplayName") == displayName }
-                .getString("Value");
+                .getString("Value")
 
         val deviceInfos = this.performMyQRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
                 .getJSONArray("Devices")
@@ -31,25 +30,25 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
                         val state = mapOf("openState" to if (getAttributeValueFunc(it, "doorstate") == "2") "Closed" else "Open")
                     }
                 }
-                .toList();
+                .toList()
 
         this.listener.onDevicesDiscovered(
                 this,
                 deviceInfos.map { it.definition }.toList()
-        );
+        )
 
         deviceInfos.forEach { deviceInfo ->
             deviceInfo.state.forEach {
-                this.listener.onDeviceStateDiscovered(this, deviceInfo.definition.id, it.key, it.value);
+                this.listener.onDeviceStateDiscovered(this, deviceInfo.definition.id, it.key, it.value)
             }
         }
     }
 
-    override fun poll() = this.startDiscoverDevices();
+    override fun poll() = this.startDiscoverDevices()
 
     override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
-        var attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException();
-        var attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException();
+        val attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException()
+        val attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException()
 
         this.performMyQRequestWithLoginHandling(
                 "PUT",
@@ -59,7 +58,7 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
                         "AttributeName" to attributeName,
                         "AttributeValue" to attributeValue
                 )
-        );
+        )
     }
 
     private fun performMyQRequestWithLoginHandling(
@@ -67,29 +66,29 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
             pathPart: String,
             bodyMap: Map<String, String>? = null
     ): JSONObject {
-        var attemptCount = 0;
+        var attemptCount = 0
 
         while (true) {
-            var responseObject = this.performMyQRequest(method, pathPart, bodyMap);
+            val responseObject = this.performMyQRequest(method, pathPart, bodyMap)
 
             if (responseObject.optString("error") != "-33336" && responseObject.optString("ReturnCode") != "216")
-                return responseObject;
+                return responseObject
 
             if (attemptCount++ > 4)
-                throw IOException(); // TODO rename, etc
+                throw IOException()
 
-            var loginResponseObject = this.performMyQRequest(
+            val loginResponseObject = this.performMyQRequest(
                     "POST",
                     "User/Validate",
                     mapOf(
                             "username" to this.parameters.configuration.getString("username"),
                             "password" to this.parameters.configuration.getString("password")
                     )
-            );
+            )
 
-            this.parameters.state.put("securityToken", loginResponseObject.getString("SecurityToken"));
+            this.parameters.state.put("securityToken", loginResponseObject.getString("SecurityToken"))
 
-            Thread.sleep(4000); // TODO let's try to see if necessary?
+            Thread.sleep(4000) // TODO let's try to see if necessary?
         }
     }
 
@@ -102,7 +101,7 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
             "https",
             "myqexternal.myqdevice.com",
             //"10.0.2.2:1000",
-            "/api/v4/" + pathPart,
+            "/api/v4/$pathPart",
             mapOf(
                     "User-Agent" to "Chamberlain/3.73",
                     "BrandId" to "2",
@@ -113,5 +112,5 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
             ),
             mapOf(),
             bodyMap?.let { JSONObject(it) }
-    );
+    )
 }
