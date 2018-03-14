@@ -66,3 +66,8 @@ fun tryLog(proc: () -> Unit) {
         Log.e("Exception", "Encountered exception", ex)
     }
 }
+
+fun ifApiLevel(api: Int, proc: () -> Unit) {
+    if (api <= android.os.Build.VERSION.SDK_INT)
+        proc();
+}

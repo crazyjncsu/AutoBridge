@@ -46,6 +46,8 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
 
     override fun poll() = this.startDiscoverDevices()
 
+    override fun startDiscoverDeviceState(deviceID: String) = this.startDiscoverDevices()
+
     override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
         val attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException()
         val attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException()

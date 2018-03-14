@@ -15,6 +15,7 @@ abstract class RuntimeBase(val parameters: RuntimeParameters) {
 
 abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
     abstract fun startDiscoverDevices()
+    abstract fun startDiscoverDeviceState(deviceID: String)
     abstract fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String)
 
     interface Listener {
@@ -30,6 +31,7 @@ abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: 
 
     interface Listener {
         fun onDeviceSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String)
+        fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String)
         fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String)
     }
 }
@@ -45,7 +47,7 @@ abstract class PollingDeviceSourceRuntime(parameters: RuntimeParameters, listene
 
     override fun startOrStop(startOrStop: Boolean, context: Context) {
         if (startOrStop)
-            this.timer.schedule(this.task, 0, 20_000)
+            this.timer.schedule(this.task, 0, 30_000)
         else
             this.timer.cancel()
     }

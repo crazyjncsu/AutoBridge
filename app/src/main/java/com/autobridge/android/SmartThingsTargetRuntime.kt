@@ -7,15 +7,15 @@ private val propertyNameValueToSmartThingsMap = mapOf(
         Pair("openState", "Open") to Pair("door", "open"),
         Pair("openState", "Closed") to Pair("door", "closed"),
         Pair("value", "true") to Pair("switch", "on"),
-        Pair("value", "false") to Pair("swtich", "off")
+        Pair("value", "false") to Pair("switch", "off")
 )
 
 private val smartThingsToPropertyNameValueMap = propertyNameValueToSmartThingsMap.entries.associateBy({ it.value }) { it.key }
 
 class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceTargetRuntime(parameters, listener) {
     override fun processMessage(message: JSONObject) {
-        val propertyName = message.getString("propertyName")
-        val propertyValue = message.getString("propertyValue")
+        val propertyName = message.optString("propertyName")
+        val propertyValue = message.optString("propertyValue")
         val mappedProperty = smartThingsToPropertyNameValueMap[Pair(propertyName, propertyValue)]
 
         this.listener.onDeviceStateChangeRequest(

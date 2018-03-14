@@ -8,23 +8,17 @@ enum class DeviceType(val ocfDeviceType: String, val displayName: String, val re
     LIGHT_SENSOR("com.autobridge.d.lightSensor", "Light Sensor", arrayOf(ResourceType.ILLUMINANCE_MEASUREMENT)),
     MOTION_SENSOR("com.autobridge.d.motionSensor", "Motion Sensor", arrayOf()),
     SOUND_SENSOR("com.autobridge.d.soundSensor", "Sound Sensor", arrayOf()),
-    SOUND_PRESSURE_LEVEL_SENSOR("com.autobridge.d.soundPressureLevelSensor", "Sound Pressure Level Sensor", arrayOf()),
+    SOUND_PRESSURE_LEVEL_SENSOR("com.autobridge.d.soundPressureLevelSensor", "Sound Pressure Level Sensor", arrayOf(ResourceType.SOUND_PRESSURE_LEVEL_MEASUREMENT)),
     ATMOSPHERIC_PRESSURE_SENSOR("", "Atmospheric Pressure Sensor", arrayOf()),
     ACCELERATION_SENSOR("", "Acceleration Sensor", arrayOf()),
     HUMIDITY_SENSOR("", "Humidity Sensor", arrayOf())
 }
 
-enum class ResourceType(val ocfResourceType: String) {
-    DOOR("oic.r.door"),
-    SPEECH_TTS("oic.r.speech.tts"),
-    IMAGE_CAPTURE("com.autobridge.r.image.capture"),
-    BINARY_SWITCH("oic.r.switch.binary"),
-    ILLUMINANCE_MEASUREMENT("oic.r.sensor.illuminance"),
-}
-
-enum class ResourceTypeProperty(val resourceType: ResourceType, propertyName: String) {
-    DOOR_OPEN_STATE(ResourceType.DOOR, "openState"),
-    SPEECH_TTS_UTTERANCE(ResourceType.SPEECH_TTS, "utterance"),
-    BINARY_SWITCH_VALUE(ResourceType.BINARY_SWITCH, "value"),
-    ILLUMINANCE_MEASUREMENT_ILLUMINANCE(ResourceType.ILLUMINANCE_MEASUREMENT, "illuminance")
+enum class ResourceType(val ocfResourceType: String, val propertyNames: Array<String>) {
+    DOOR("oic.r.door", arrayOf("openState")),
+    SPEECH_TTS("oic.r.speech.tts", arrayOf("utterance")),
+    IMAGE_CAPTURE("com.autobridge.r.image.capture", arrayOf("image")),
+    BINARY_SWITCH("oic.r.switch.binary", arrayOf("value")),
+    ILLUMINANCE_MEASUREMENT("oic.r.sensor.illuminance", arrayOf("illuminance")),
+    SOUND_PRESSURE_LEVEL_MEASUREMENT("", arrayOf("soundPressureLevel"))
 }

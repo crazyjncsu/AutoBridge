@@ -4,10 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
-
-import org.json.JSONObject
-
 import fi.iki.elonen.NanoHTTPD
+import org.json.JSONObject
 import java.util.*
 
 class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
@@ -39,7 +37,32 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             OnboardSourceRuntime(
                     RuntimeParameters(
                             "348e978d-287d-43bc-9862-44a1418b33ae",
-                            JSONObject(mapOf("exposeDevices" to "")),
+                            JSONObject(mapOf("devices" to arrayOf(
+                                    JSONObject(mapOf(
+                                            "id" to "speechSynthesizer",
+                                            "name" to "Android Speech Synthesizer",
+                                            "configuration" to JSONObject()
+                                    )),
+                                    JSONObject(mapOf(
+                                            "id" to "flashlight",
+                                            "name" to "Android Light",
+                                            "configuration" to JSONObject()
+                                    )),
+                                    JSONObject(mapOf(
+                                            "id" to "illuminanceSensor",
+                                            "name" to "Android Light Sensor",
+                                            "configuration" to JSONObject(mapOf(
+                                                    "reportIntervalMillisecondCount" to 5000.0
+                                            ))
+                                    )),
+                                    JSONObject(mapOf(
+                                            "id" to "soundPressureLevelSensor",
+                                            "name" to "Android SPL Meter",
+                                            "configuration" to JSONObject(mapOf(
+                                                    "reportIntervalMillisecondCount" to 5000.0
+                                            ))
+                                    ))
+                            ))),
                             JSONObject()
                     ),
                     this
@@ -50,7 +73,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             SmartThingsTargetRuntime(
                     RuntimeParameters(
                             "d2accd0f-eb6a-4393-bfe8-e380e8d857f9",
-                            JSONObject(mapOf<String, String>()),
+                            JSONObject(),
                             JSONObject(mapOf("authority" to "192.168.1.65:39500"))
                     ),
                     this
@@ -71,8 +94,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     override fun onCreate() {
         super.onCreate()
         this.webServer.start()
-        this.runtimes.forEach { it.startOrStop(true, this.baseContext) }
-        this.sourceRuntimes.forEach { it.startDiscoverDevices() }
+        this.runtimes.forEach { it.startOrStop(true, this.applicationContext) }
         this.timer.schedule(object : TimerTask() {
             override fun run() {
                 this@Service.sourceRuntimes
@@ -98,6 +120,12 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
                 .forEach { it.startDiscoverDevices() }
+    }
+
+    override fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String) {
+        this.targetToSourcesMap[targetRuntime]!!
+                .filter { it.parameters.id == sourceID }
+                .forEach { it.startDiscoverDeviceState(deviceID) }
     }
 
     override fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
