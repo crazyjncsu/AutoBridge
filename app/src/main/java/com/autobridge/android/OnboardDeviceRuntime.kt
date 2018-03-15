@@ -71,12 +71,12 @@ abstract class OnboardDeviceRuntime(parameters: DeviceRuntimeParameters, val lis
                     "flashlight" -> FlashlightRuntime(parameters, listener)
 
                     "soundPressureLevelSensor" -> object : SoundAmplitudeSensorRuntime<Double>(parameters, listener, DeviceType.SOUND_PRESSURE_LEVEL_SENSOR, 0.0) {
-                        override fun onSoundMaxAmplitudeSampled(value: Double) = this.onValueSampled(value)
+                        override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue)
                     }
 
                     "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
                         private val threshold = this.parameters.configuration.getDouble("threshold")
-                        override fun onSoundMaxAmplitudeSampled(value: Double) = this.onValueSampled(value > this.threshold)
+                        override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
                     }
 
                     "atmosphericPressureSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ATMOSPHERIC_PRESSURE_SENSOR, Sensor.TYPE_PRESSURE)
@@ -201,9 +201,9 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
         var sampledDoubleValue = this.convertToDouble(sampledValue)
 
         if (this.lastReportedTickCount == 0L
-                || (this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount > this.reportIntervalMillisecondCount)
-                || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) > this.reportPercentageChange)
-                || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) > this.reportValueChange)) {
+                || (this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount >= this.reportIntervalMillisecondCount)
+                || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) >= this.reportPercentageChange)
+                || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) >= this.reportValueChange)) {
             this.lastReportedDoubleValue = sampledDoubleValue
             this.lastReportedTickCount = currentTickCount
             this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], sampledValue.toString())
@@ -230,32 +230,12 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
             throw IllegalAccessException()
 }
 
-abstract class SoundAmplitudeSensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, value: ValueType) : SensorRuntime<ValueType>(parameters, listener, deviceType, value) {
-    private val soundLevelSampler = SoundLevelSampler()
-    private var isDeactivating = false
-
-    abstract fun onSoundMaxAmplitudeSampled(value: Double)
-
-    private val thread = Thread(object : Runnable {
-        override fun run() {
-            while (!this@SoundAmplitudeSensorRuntime.isDeactivating) {
-                this@SoundAmplitudeSensorRuntime.onSoundMaxAmplitudeSampled(this@SoundAmplitudeSensorRuntime.soundLevelSampler.sampleMaxAmplitude())
-                Thread.sleep(250)
-            }
-        }
-    })
-
-    override fun startOrStop(startOrStop: Boolean, context: Context) {
-        if (startOrStop) {
-            this.soundLevelSampler.start()
-            this.isDeactivating = false
-            this.thread.start()
-        } else {
-            this.isDeactivating = true
-            this.thread.join()
-            this.soundLevelSampler.stop()
-        }
-    }
+abstract class SoundAmplitudeSensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, value: ValueType) : SensorRuntime<ValueType>(parameters, listener, deviceType, value), SoundLevelSampler.Listener {
+    override fun startOrStop(startOrStop: Boolean, context: Context) =
+            if (startOrStop)
+                SoundLevelSampler.instance.registerListener(this)
+            else
+                SoundLevelSampler.instance.unregisterListener(this)
 }
 
 open class HardwareSensorRuntime(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, val sensorType: Int) : SensorRuntime<Double>(parameters, listener, deviceType, 0.0), SensorEventListener {

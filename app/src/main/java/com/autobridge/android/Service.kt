@@ -67,6 +67,14 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                                     "reportIntervalMillisecondCount" to 60_000,
                                                     "reportValueChange" to 10.0
                                             ))
+                                    )),
+                                    JSONObject(mapOf(
+                                            "id" to "soundSensor",
+                                            "name" to "Android Sound Sensor",
+                                            "configuration" to JSONObject(mapOf(
+                                                    "reportValueChange" to 1,
+                                                    "threshold" to 50
+                                            ))
                                     ))
                             ))),
                             JSONObject()

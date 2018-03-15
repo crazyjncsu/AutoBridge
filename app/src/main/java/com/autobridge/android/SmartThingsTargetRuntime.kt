@@ -9,7 +9,9 @@ private val propertyNameValueToSmartThingsMap = mapOf(
         Pair("openState", "Open") to Pair("door", "open"),
         Pair("openState", "Closed") to Pair("door", "closed"),
         Pair("value", "true") to Pair("switch", "on"),
-        Pair("value", "false") to Pair("switch", "off")
+        Pair("value", "false") to Pair("switch", "off"),
+        Pair("sound", "true") to Pair("sound", "detected"),
+        Pair("sound", "false") to Pair("sound", "not detected")
 )
 
 private val smartThingsToPropertyNameValueMap = propertyNameValueToSmartThingsMap.entries.associateBy({ it.value }) { it.key }

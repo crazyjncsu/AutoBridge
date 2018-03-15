@@ -7,7 +7,7 @@ enum class DeviceType(val ocfDeviceType: String, val displayName: String, val re
     LIGHT("com.autobridge.d.light", "Light", arrayOf(ResourceType.BINARY_SWITCH)),
     LIGHT_SENSOR("com.autobridge.d.lightSensor", "Light Sensor", arrayOf(ResourceType.ILLUMINANCE_MEASUREMENT)),
     MOTION_SENSOR("com.autobridge.d.motionSensor", "Motion Sensor", arrayOf()),
-    SOUND_SENSOR("com.autobridge.d.soundSensor", "Sound Sensor", arrayOf()),
+    SOUND_SENSOR("com.autobridge.d.soundSensor", "Sound Sensor", arrayOf(ResourceType.SOUND_DETECTOR)),
     SOUND_PRESSURE_LEVEL_SENSOR("com.autobridge.d.soundPressureLevelSensor", "Sound Pressure Level Sensor", arrayOf(ResourceType.SOUND_PRESSURE_LEVEL_MEASUREMENT)),
     ATMOSPHERIC_PRESSURE_SENSOR("", "Atmospheric Pressure Sensor", arrayOf()),
     ACCELERATION_SENSOR("", "Acceleration Sensor", arrayOf()),
@@ -20,5 +20,6 @@ enum class ResourceType(val ocfResourceType: String, val propertyNames: Array<St
     IMAGE_CAPTURE("com.autobridge.r.image.capture", arrayOf("image")),
     BINARY_SWITCH("oic.r.switch.binary", arrayOf("value")),
     ILLUMINANCE_MEASUREMENT("oic.r.sensor.illuminance", arrayOf("illuminance")),
-    SOUND_PRESSURE_LEVEL_MEASUREMENT("", arrayOf("soundPressureLevel"))
+    SOUND_PRESSURE_LEVEL_MEASUREMENT("", arrayOf("soundPressureLevel")),
+    SOUND_DETECTOR("", arrayOf("sound"))
 }
