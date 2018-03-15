@@ -1,8 +1,11 @@
 package com.autobridge.android
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.hardware.*
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import kotlinx.coroutines.experimental.CommonPool
@@ -137,29 +140,52 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
 
 @Suppress("DEPRECATION")
 class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : OnboardDeviceRuntime(parameters, listener, DeviceType.LIGHT) {
-    private val surfaceTexture = SurfaceTexture(1)
-    private var camera: Camera? = null
+    //private val surfaceTexture = SurfaceTexture(1)
+    //private var camera: Camera? = null
+    private lateinit var cameraManager: CameraManager;
+    private var onOrOff = false;
 
-    override fun startDiscoverState() =
-            this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], if (this.camera == null) "false" else "true")
-
-    override fun startSetState(propertyName: String, propertyValue: String) {
+    @SuppressLint("NewApi")
+    override fun startOrStop(startOrStop: Boolean, context: Context) {
         ifApiLevel(23) {
-            // TODO camera manager?
+            if (startOrStop)
+                this.cameraManager = context.getSystemService("camera") as CameraManager // Context.CAMERA_SERVICE won't compile?
         }
-        if (propertyValue == "true" && this.camera == null) {
-            this.camera = Camera.open()
-            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_TORCH
-            //this.camera!!.setPreviewTexture(this.surfaceTexture)
-            this.camera!!.startPreview()
-        } else if (propertyValue == "false" && this.camera != null) {
-            this.camera!!.stopPreview()
-            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_OFF
-            this.camera!!.release()
-            this.camera = null
-        }
+    }
 
-        this.listener.onStateDiscovered(this, propertyName, propertyValue)
+    override fun startDiscoverState() {
+        async(CommonPool) {
+            this@FlashlightRuntime.listener.onStateDiscovered(
+                    this@FlashlightRuntime,
+                    this@FlashlightRuntime.deviceType.resourceTypes[0].propertyNames[0],
+                    if (this@FlashlightRuntime.onOrOff) "true" else "false")
+        }
+    }
+
+    @SuppressLint("NewApi")
+    override fun startSetState(propertyName: String, propertyValue: String) {
+        async(CommonPool) {
+            ifApiLevel(23) {
+                this@FlashlightRuntime.onOrOff = propertyValue == "true";
+
+                this@FlashlightRuntime.cameraManager.cameraIdList
+                        .filter { this@FlashlightRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
+                        .forEach { this@FlashlightRuntime.cameraManager.setTorchMode(it, this@FlashlightRuntime.onOrOff) }
+
+                this@FlashlightRuntime.listener.onStateDiscovered(this@FlashlightRuntime, propertyName, if (this@FlashlightRuntime.onOrOff) "true" else "false")
+            }
+        }
+//        if (propertyValue == "true" && this.camera == null) {
+//            this.camera = Camera.open()
+//            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_TORCH
+//            //this.camera!!.setPreviewTexture(this.surfaceTexture)
+//            this.camera!!.startPreview()
+//        } else if (propertyValue == "false" && this.camera != null) {
+//            this.camera!!.stopPreview()
+//            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_OFF
+//            this.camera!!.release()
+//            this.camera = null
+//        }
     }
 }
 
@@ -174,8 +200,9 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
         val currentTickCount = System.currentTimeMillis()
         var sampledDoubleValue = this.convertToDouble(sampledValue)
 
-        if ((this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount > this.reportIntervalMillisecondCount)
-                || (this.reportPercentageChange != 0.0 && Math.abs(this.lastReportedDoubleValue / (this.lastReportedDoubleValue - sampledDoubleValue)) > this.reportPercentageChange)
+        if (this.lastReportedTickCount == 0L
+                || (this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount > this.reportIntervalMillisecondCount)
+                || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) > this.reportPercentageChange)
                 || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) > this.reportValueChange)) {
             this.lastReportedDoubleValue = sampledDoubleValue
             this.lastReportedTickCount = currentTickCount
@@ -196,9 +223,7 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
     }
 
     override fun startDiscoverState() {
-        this.lastReportedDoubleValue = this.convertToDouble(this.value)
-        this.lastReportedTickCount = System.currentTimeMillis()
-        this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], this.value.toString())
+        this.lastReportedTickCount = 0L
     }
 
     override fun startSetState(propertyName: String, propertyValue: String) =
@@ -246,9 +271,8 @@ open class HardwareSensorRuntime(parameters: DeviceRuntimeParameters, listener: 
 
     protected open fun adjustValue(value: Double): Double = value
 
-    override fun onSensorChanged(sensorEvent: SensorEvent) {
-        async(CommonPool) { this@HardwareSensorRuntime.onValueSampled(this@HardwareSensorRuntime.adjustValue(sensorEvent.values[0].toDouble())) }
-    }
+    override fun onSensorChanged(sensorEvent: SensorEvent) =
+            this.onValueSampled(this.adjustValue(sensorEvent.values[0].toDouble()))
 
     override fun onAccuracyChanged(sensor: Sensor, i: Int) = Unit
 }

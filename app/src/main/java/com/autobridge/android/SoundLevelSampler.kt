@@ -18,5 +18,5 @@ class SoundLevelSampler {
         this.mediaRecorder.stop()
     }
 
-    fun sampleMaxAmplitude(): Double = 20 * Math.log10((amp / 51805.5336f) / 0.00002f)
+    fun sampleMaxAmplitude() = Math.round(20 * Math.log10((this.mediaRecorder.maxAmplitude / 51805.5336) / 0.00002)).toDouble()
 }

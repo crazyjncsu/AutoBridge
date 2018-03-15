@@ -25,9 +25,9 @@ abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: 
 }
 
 abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
-    abstract fun syncSources(sourceIDs: List<String>)
-    abstract fun syncSourceDevices(sourceID: String, devices: List<DeviceDefinition>)
-    abstract fun syncDeviceState(sourceID: String, deviceID: String, propertyName: String, propertyValue: String)
+    abstract fun startSyncSources(sourceIDs: List<String>)
+    abstract fun startSyncSourceDevices(sourceID: String, devices: List<DeviceDefinition>)
+    abstract fun startSyncDeviceState(sourceID: String, deviceID: String, propertyName: String, propertyValue: String)
 
     interface Listener {
         fun onDeviceSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String)

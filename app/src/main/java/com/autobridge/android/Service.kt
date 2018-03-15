@@ -11,6 +11,10 @@ import java.util.*
 class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
     private val timer = Timer()
 
+    private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
+
+    })
+
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
             this@Service.targetRuntimes
@@ -52,14 +56,16 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                             "id" to "illuminanceSensor",
                                             "name" to "Android Light Sensor",
                                             "configuration" to JSONObject(mapOf(
-                                                    "reportIntervalMillisecondCount" to 5000.0
+                                                    "reportIntervalMillisecondCount" to 60_000,
+                                                    "reportPercentageChange" to 0.5
                                             ))
                                     )),
                                     JSONObject(mapOf(
                                             "id" to "soundPressureLevelSensor",
                                             "name" to "Android SPL Meter",
                                             "configuration" to JSONObject(mapOf(
-                                                    "reportIntervalMillisecondCount" to 5000.0
+                                                    "reportIntervalMillisecondCount" to 60_000,
+                                                    "reportValueChange" to 10.0
                                             ))
                                     ))
                             ))),
@@ -93,6 +99,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
     override fun onCreate() {
         super.onCreate()
+        this.ssdpServer.start();
         this.webServer.start()
         this.runtimes.forEach { it.startOrStop(true, this.applicationContext) }
         this.timer.schedule(object : TimerTask() {
@@ -103,7 +110,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                 this@Service.targetRuntimes
                         .forEach { targetRuntime ->
                             targetRuntime
-                                    .syncSources(this@Service.targetToSourcesMap[targetRuntime]!!.map { it.parameters.id })
+                                    .startSyncSources(this@Service.targetToSourcesMap[targetRuntime]!!.map { it.parameters.id })
                         }
             }
         }, 0, 3_600_000)
@@ -111,6 +118,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
     override fun onDestroy() {
         super.onDestroy()
+        this.ssdpServer.stop()
         this.webServer.stop()
         this.runtimes.forEach { it.startOrStop(false, this.baseContext) }
         this.timer.cancel()
@@ -136,13 +144,13 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
     override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String) {
         this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.syncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) }
+                .forEach { it.startSyncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) }
     }
 
     override fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>) {
         Log.v("Bridge", "Discovered devices: $devices")
         this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.syncSourceDevices(sourceRuntime.parameters.id, devices) }
+                .forEach { it.startSyncSourceDevices(sourceRuntime.parameters.id, devices) }
     }
 }
 
