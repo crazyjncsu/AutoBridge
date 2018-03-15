@@ -30,6 +30,14 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     }
 
     private val sourceRuntimes = arrayOf(
+            ContactClosureBoardSourceRuntime(
+                    RuntimeParameters(
+                            "7b7b88c4-740e-4341-885f-77a4a2bf1342",
+                            JSONObject(),
+                            JSONObject()
+                    ),
+                    this
+            ),
             MyQSourceRuntime(
                     RuntimeParameters(
                             "169b0eae-b913-4685-a9ec-b780c58944f9",
@@ -98,7 +106,8 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
 
     private val sourceToTargetsMap = mapOf(
             this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
-            this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0])
+            this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0]),
+            this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0])
     )
 
     private val targetToSourcesMap = mapOf(
