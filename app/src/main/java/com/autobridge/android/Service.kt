@@ -30,10 +30,41 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     }
 
     private val sourceRuntimes = arrayOf(
-            ContactClosureBoardSourceRuntime(
+            UsbHidContactClosureBoardSourceRuntime(
                     RuntimeParameters(
                             "7b7b88c4-740e-4341-885f-77a4a2bf1342",
-                            JSONObject(),
+                            JSONObject(mapOf(
+                                    "usbProductID" to 1503,
+                                    "usbVendorID" to 5824,
+                                    "devices" to arrayOf(
+                                            JSONObject(mapOf(
+                                                    "id" to "7110d9e3-7161-4aec-a080-9a989d91d107",
+                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
+                                                    "name" to "Relay Light 4",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "contactID" to "R4"
+                                                    ))
+                                            )),
+                                            JSONObject(mapOf(
+                                                    "id" to "03f4559b-5436-4440-8506-6bcaa486cf48",
+                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
+                                                    "name" to "Relay Light 3",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "contactID" to "R3"
+                                                    ))
+                                            )),
+                                            JSONObject(mapOf(
+                                                    "id" to "ec68af29-726a-41b0-bd87-c90e9d507301",
+                                                    "type" to DeviceType.DOOR_OPENER.ocfDeviceType,
+                                                    "name" to "Relay Door 1 and 2",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "openContactID" to "R1",
+                                                            "closeContactID" to "R2",
+                                                            "openDurationSeconds" to 4,
+                                                            "closeDurationSeconds" to 4
+                                                    ))
+                                            ))
+                                    ))),
                             JSONObject()
                     ),
                     this
@@ -73,7 +104,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                             "name" to "Android SPL Meter",
                                             "configuration" to JSONObject(mapOf(
                                                     "reportIntervalMillisecondCount" to 60_000,
-                                                    "reportValueChange" to 10.0
+                                                    "reportValueChange" to 30.0
                                             ))
                                     )),
                                     JSONObject(mapOf(
@@ -91,7 +122,8 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             )
     )
 
-    private val targetRuntimes = arrayOf(
+    private
+    val targetRuntimes = arrayOf(
             SmartThingsTargetRuntime(
                     RuntimeParameters(
                             "d2accd0f-eb6a-4393-bfe8-e380e8d857f9",
@@ -102,21 +134,24 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             )
     )
 
-    private val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
+    private
+    val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
 
-    private val sourceToTargetsMap = mapOf(
+    private
+    val sourceToTargetsMap = mapOf(
             this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0])
     )
 
-    private val targetToSourcesMap = mapOf(
+    private
+    val targetToSourcesMap = mapOf(
             this.targetRuntimes[0] to this.sourceRuntimes
     )
 
     override fun onCreate() {
         super.onCreate()
-        this.ssdpServer.start();
+        this.ssdpServer.start()
         this.webServer.start()
         this.runtimes.forEach { it.startOrStop(true, this.applicationContext) }
         this.timer.schedule(object : TimerTask() {
@@ -141,31 +176,40 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.timer.cancel()
     }
 
-    override fun onDeviceSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
+    override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
+        Log.v(TAG, "Received devices sync request; starting to discover devices state for source '$sourceID'...")
+
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
                 .forEach { it.startDiscoverDevices() }
     }
 
     override fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String) {
+        Log.v(TAG, "Received device refresh request; starting to discover device state for device '$deviceID'...")
+
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
                 .forEach { it.startDiscoverDeviceState(deviceID) }
     }
 
     override fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
+        Log.v(TAG, "Received device state change request; starting to set device '$deviceID' property '$propertyName' to '$propertyValue'...")
+
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
                 .forEach { it.startSetDeviceState(deviceID, propertyName, propertyValue) }
     }
 
-    override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, propertyName: String, propertyValue: String) {
+    override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String) {
+        Log.v(TAG, "Discovered device '$deviceID' property '$propertyName' is '$propertyValue'; syncing...")
+
         this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.startSyncDeviceState(sourceRuntime.parameters.id, deviceID, propertyName, propertyValue) }
+                .forEach { it.startSyncDeviceState(sourceRuntime.parameters.id, deviceID, deviceType, propertyName, propertyValue) }
     }
 
     override fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>) {
-        Log.v("Bridge", "Discovered devices: $devices")
+        Log.v(TAG, "Discovered ${devices.count()} devices for runtime '$sourceRuntime'; syncing...")
+
         this.sourceToTargetsMap[sourceRuntime]!!
                 .forEach { it.startSyncSourceDevices(sourceRuntime.parameters.id, devices) }
     }

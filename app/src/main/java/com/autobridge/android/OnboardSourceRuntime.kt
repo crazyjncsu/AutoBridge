@@ -2,116 +2,58 @@ package com.autobridge.android
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.SurfaceTexture
-import android.hardware.*
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
 import org.json.JSONObject
 
-class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener), OnboardDeviceRuntime.Listener {
-    private val devices = this.parameters.configuration
-            .getJSONArray("devices")
-            .toJSONObjectSequence()
-            .map {
-                object {
-                    private val id = it.getString("id")
-                    val runtime = OnboardDeviceRuntime.createDevice(
-                            id,
-                            DeviceRuntimeParameters(
-                                    this.id,
-                                    it.getJSONObject("configuration"),
-                                    JSONObject(),
-                                    it.getString("name")
-                            ),
-                            this@OnboardSourceRuntime
-                    )
+class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
+    protected override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
+            when (deviceID) {
+                "speechSynthesizer" -> SpeechSynthesizerRuntime(parameters, listener)
+
+                "flashlight" -> FlashlightRuntime(parameters, listener)
+
+                "soundPressureLevelSensor" -> object : SoundAmplitudeSensorRuntime<Double>(parameters, listener, DeviceType.SOUND_PRESSURE_LEVEL_SENSOR, 0.0) {
+                    override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue)
                 }
+
+                "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
+                    private val threshold = this.parameters.configuration.getDouble("threshold")
+                    override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
+                }
+
+                "atmosphericPressureSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ATMOSPHERIC_PRESSURE_SENSOR, Sensor.TYPE_PRESSURE)
+
+                "relativeHumiditySensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.HUMIDITY_SENSOR, 12) // Sensor.TYPE_RELATIVE_HUMIDITY won't compile
+
+                "illuminanceSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.LIGHT_SENSOR, Sensor.TYPE_LIGHT)
+
+                "accelerationSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ACCELERATION_SENSOR, Sensor.TYPE_LINEAR_ACCELERATION)
+
+                "frontCamera" -> CameraRuntime(parameters, listener, true)
+
+                "backCamera" -> CameraRuntime(parameters, listener, false)
+
+                else -> throw IllegalArgumentException()
             }
-            .toList()
-
-    override fun startOrStop(startOrStop: Boolean, context: Context) =
-            this.devices.forEach { it.runtime.startOrStop(startOrStop, context) }
-
-    override fun onStateDiscovered(deviceRuntime: OnboardDeviceRuntime, propertyName: String, propertyValue: String) =
-            this.listener.onDeviceStateDiscovered(this, deviceRuntime.parameters.id, propertyName, propertyValue)
-
-
-    override fun startDiscoverDevices() =
-            this.listener.onDevicesDiscovered(
-                    this,
-                    this.devices
-                            .map { DeviceDefinition(it.runtime.parameters.id, it.runtime.deviceType, (it.runtime.parameters as DeviceRuntimeParameters).name) }
-                            .toList()
-            )
-
-    override fun startDiscoverDeviceState(deviceID: String) =
-            this.devices
-                    .filter { it.runtime.parameters.id == deviceID }
-                    .forEach { it.runtime.startDiscoverState() }
-
-
-    override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) =
-            this.devices
-                    .filter { it.runtime.parameters.id == deviceID }
-                    .forEach { it.runtime.startSetState(propertyName, propertyValue) }
 }
 
-class DeviceRuntimeParameters(id: String, configuration: JSONObject, state: JSONObject, val name: String) : RuntimeParameters(id, configuration, state)
+class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : DeviceRuntime(parameters, listener, DeviceType.CAMERA) {
+    override fun startDiscoverState() {}
 
-abstract class OnboardDeviceRuntime(parameters: DeviceRuntimeParameters, val listener: Listener, val deviceType: DeviceType) : RuntimeBase(parameters) {
-    companion object {
-        fun createDevice(deviceID: String, parameters: DeviceRuntimeParameters, listener: Listener) =
-                when (deviceID) {
-                    "speechSynthesizer" -> SpeechSynthesizerRuntime(parameters, listener)
-
-                    "flashlight" -> FlashlightRuntime(parameters, listener)
-
-                    "soundPressureLevelSensor" -> object : SoundAmplitudeSensorRuntime<Double>(parameters, listener, DeviceType.SOUND_PRESSURE_LEVEL_SENSOR, 0.0) {
-                        override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue)
-                    }
-
-                    "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
-                        private val threshold = this.parameters.configuration.getDouble("threshold")
-                        override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
-                    }
-
-                    "atmosphericPressureSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ATMOSPHERIC_PRESSURE_SENSOR, Sensor.TYPE_PRESSURE)
-
-                //"relativeHumiditySensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.HUMIDITY_SENSOR, "humidity", 0.0, Sensor.TYPE_RELATIVE_HUMIDITY)
-
-                    "illuminanceSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.LIGHT_SENSOR, Sensor.TYPE_LIGHT)
-
-                    "accelerationSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ACCELERATION_SENSOR, Sensor.TYPE_LINEAR_ACCELERATION)
-
-                    "frontCamera" -> CameraRuntime(parameters, listener, true)
-
-                    "backCamera" -> CameraRuntime(parameters, listener, false)
-
-                    else -> throw IllegalArgumentException()
-                }
-
-    }
-
-    interface Listener {
-        fun onStateDiscovered(deviceRuntime: OnboardDeviceRuntime, propertyName: String, propertyValue: String)
-    }
-
-    open fun startDiscoverState() {}
-    abstract fun startSetState(propertyName: String, propertyValue: String)
-}
-
-class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : OnboardDeviceRuntime(parameters, listener, DeviceType.CAMERA) {
     override fun startSetState(propertyName: String, propertyValue: String) {
         if (propertyValue == "")
             Log.v("Camera", "Take Picture")
     }
 }
 
-class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : OnboardDeviceRuntime(parameters, listener, DeviceType.SPEECH_SYNTHESIZER), TextToSpeech.OnInitListener {
+class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : DeviceRuntime(parameters, listener, DeviceType.SPEECH_SYNTHESIZER), TextToSpeech.OnInitListener {
     private lateinit var textToSpeech: TextToSpeech
 
     override fun startOrStop(startOrStop: Boolean, context: Context) {
@@ -121,6 +63,8 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
             this.textToSpeech.shutdown()
 
     }
+
+    override fun startDiscoverState() {}
 
     override fun startSetState(propertyName: String, propertyValue: String) {
         @Suppress("DEPRECATION")
@@ -139,11 +83,11 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
 }
 
 @Suppress("DEPRECATION")
-class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : OnboardDeviceRuntime(parameters, listener, DeviceType.LIGHT) {
+class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : DeviceRuntime(parameters, listener, DeviceType.LIGHT) {
     //private val surfaceTexture = SurfaceTexture(1)
     //private var camera: Camera? = null
-    private lateinit var cameraManager: CameraManager;
-    private var onOrOff = false;
+    private lateinit var cameraManager: CameraManager
+    private var onOrOff = false
 
     @SuppressLint("NewApi")
     override fun startOrStop(startOrStop: Boolean, context: Context) {
@@ -154,7 +98,7 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
     }
 
     override fun startDiscoverState() {
-        async(CommonPool) {
+        asyncTryLog {
             this@FlashlightRuntime.listener.onStateDiscovered(
                     this@FlashlightRuntime,
                     this@FlashlightRuntime.deviceType.resourceTypes[0].propertyNames[0],
@@ -164,9 +108,9 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
 
     @SuppressLint("NewApi")
     override fun startSetState(propertyName: String, propertyValue: String) {
-        async(CommonPool) {
+        asyncTryLog {
             ifApiLevel(23) {
-                this@FlashlightRuntime.onOrOff = propertyValue == "true";
+                this@FlashlightRuntime.onOrOff = propertyValue == "true"
 
                 this@FlashlightRuntime.cameraManager.cameraIdList
                         .filter { this@FlashlightRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
@@ -189,7 +133,7 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
     }
 }
 
-abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, var value: ValueType) : OnboardDeviceRuntime(parameters, listener, deviceType) {
+abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, var value: ValueType) : DeviceRuntime(parameters, listener, deviceType) {
     private val reportIntervalMillisecondCount = parameters.configuration.optLong("reportIntervalMillisecondCount")
     private val reportPercentageChange = parameters.configuration.optDouble("reportPercentageChange")
     private val reportValueChange = parameters.configuration.optDouble("reportValueChange")

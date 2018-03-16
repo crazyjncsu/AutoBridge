@@ -5,16 +5,18 @@ import kotlinx.coroutines.experimental.async
 import org.json.JSONObject
 import org.json.JSONArray
 
-private val propertyNameValueToSmartThingsMap = mapOf(
-        Pair("openState", "Open") to Pair("door", "open"),
-        Pair("openState", "Closed") to Pair("door", "closed"),
-        Pair("value", "true") to Pair("switch", "on"),
-        Pair("value", "false") to Pair("switch", "off"),
-        Pair("sound", "true") to Pair("sound", "detected"),
-        Pair("sound", "false") to Pair("sound", "not detected")
+private val smartThingsToStandardMap = mapOf(
+        Pair("door", "open") to Triple(ResourceType.DOOR, "openState", "Open"),
+        Pair("door", "closed") to Triple(ResourceType.DOOR, "openState", "Closed"),
+        Pair("switch", "on") to Triple(ResourceType.BINARY_SWITCH, "value", "true"),
+        Pair("switch", "off") to Triple(ResourceType.BINARY_SWITCH, "value", "false"),
+        Pair("sound", "detected") to Triple(ResourceType.SOUND_DETECTOR, "sound", "true"),
+        Pair("sound", "not detected") to Triple(ResourceType.SOUND_DETECTOR, "sound", "false"),
+        Pair("contact", "open") to Triple(ResourceType.CONTACT_SENSOR, "value", "true"),
+        Pair("contact", "closed") to Triple(ResourceType.CONTACT_SENSOR, "value", "false")
 )
 
-private val smartThingsToPropertyNameValueMap = propertyNameValueToSmartThingsMap.entries.associateBy({ it.value }) { it.key }
+private val standardToSmartThingsMap = smartThingsToStandardMap.entries.associateBy({ it.value }) { it.key }
 
 class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceTargetRuntime(parameters, listener) {
     override fun processMessage(message: JSONObject) {
@@ -26,19 +28,19 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
         if (propertyName.isNullOrEmpty())
             this.listener.onDeviceRefreshRequest(this, sourceID, deviceID)
         else
-            smartThingsToPropertyNameValueMap[Pair(propertyName, propertyValue)].let {
+            smartThingsToStandardMap[Pair(propertyName, propertyValue)].let {
                 this.listener.onDeviceStateChangeRequest(
                         this,
                         message.getString("sourceID"),
                         message.getString("deviceID"),
-                        it?.first ?: propertyName,
-                        it?.second ?: propertyValue
+                        it?.second ?: propertyName,
+                        it?.third ?: propertyValue
                 )
             }
     }
 
     override fun startSyncSources(sourceIDs: List<String>) {
-        async(CommonPool) {
+        asyncTryLog {
             this@SmartThingsTargetRuntime.performSmartThingsRequest(
                     JSONObject(mapOf(
                             "autoBridgeOperation" to "syncSources",
@@ -50,7 +52,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
     }
 
     override fun startSyncSourceDevices(sourceID: String, devices: List<DeviceDefinition>) {
-        async(CommonPool) {
+        asyncTryLog {
             this@SmartThingsTargetRuntime.performSmartThingsRequest(
                     JSONObject(mapOf(
                             "autoBridgeOperation" to "syncSourceDevices",
@@ -69,9 +71,11 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
         }
     }
 
-    override fun startSyncDeviceState(sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
-        async(CommonPool) {
-            val mappedProperty = propertyNameValueToSmartThingsMap[Pair(propertyName, propertyValue)]
+    override fun startSyncDeviceState(sourceID: String, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String) {
+        asyncTryLog {
+            val mappedProperty = deviceType.resourceTypes
+                    .map { standardToSmartThingsMap[Triple(it, propertyName, propertyValue)] }
+                    .firstOrNull { it != null }
 
             this@SmartThingsTargetRuntime.performSmartThingsRequest(
                     JSONObject(mapOf(

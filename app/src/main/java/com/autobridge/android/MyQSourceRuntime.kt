@@ -1,5 +1,7 @@
 package com.autobridge.android
 
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.async
 import org.json.JSONObject
 import java.io.IOException
 import java.lang.IllegalArgumentException
@@ -9,37 +11,44 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
     private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
 
     override fun startDiscoverDevices() {
-        fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
-                .getJSONArray("Attributes")
-                .toJSONObjectSequence()
-                .first { it.getString("AttributeDisplayName") == displayName }
-                .getString("Value")
+        asyncTryLog {
+            fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
+                    .getJSONArray("Attributes")
+                    .toJSONObjectSequence()
+                    .first { it.getString("AttributeDisplayName") == displayName }
+                    .getString("Value")
 
-        val deviceInfos = this.performMyQRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
-                .getJSONArray("Devices")
-                .toJSONObjectSequence()
-                .filter { it.getString("MyQDeviceTypeId") == "2" }
-                .map {
-                    object {
-                        val definition = DeviceDefinition(
-                                it.getString("MyQDeviceId"),
-                                DeviceType.GARAGE_DOOR_OPENER,
-                                getAttributeValueFunc(it, "desc")
-                        )
+            val deviceInfos = this@MyQSourceRuntime.performMyQRequestWithLoginHandling("GET", "UserDeviceDetails/Get")
+                    .getJSONArray("Devices")
+                    .toJSONObjectSequence()
+                    .filter { it.getString("MyQDeviceTypeId") == "2" }
+                    .map {
+                        object {
+                            val definition = DeviceDefinition(
+                                    it.getString("MyQDeviceId"),
+                                    DeviceType.GARAGE_DOOR_OPENER,
+                                    getAttributeValueFunc(it, "desc")
+                            )
 
-                        val state = mapOf("openState" to if (getAttributeValueFunc(it, "doorstate") == "2") "Closed" else "Open")
+                            val isClosed = getAttributeValueFunc(it, "doorstate") == "2"
+
+                            val state = mapOf(
+                                    "openState" to if (isClosed) "Closed" else "Open",
+                                    "value" to if (isClosed) "false" else "true"
+                            )
+                        }
                     }
+                    .toList()
+
+            this@MyQSourceRuntime.listener.onDevicesDiscovered(
+                    this@MyQSourceRuntime,
+                    deviceInfos.map { it.definition }.toList()
+            )
+
+            deviceInfos.forEach { deviceInfo ->
+                deviceInfo.state.forEach {
+                    this@MyQSourceRuntime.listener.onDeviceStateDiscovered(this@MyQSourceRuntime, deviceInfo.definition.id, deviceInfo.definition.type, it.key, it.value)
                 }
-                .toList()
-
-        this.listener.onDevicesDiscovered(
-                this,
-                deviceInfos.map { it.definition }.toList()
-        )
-
-        deviceInfos.forEach { deviceInfo ->
-            deviceInfo.state.forEach {
-                this.listener.onDeviceStateDiscovered(this, deviceInfo.definition.id, it.key, it.value)
             }
         }
     }

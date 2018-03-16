@@ -1,9 +1,11 @@
 package com.autobridge.android
 
+val TAG = "AutoBridge"
 val USB_PERMISSION = "com.android.example.USB_PERMISSION"
 
 enum class DeviceType(val ocfDeviceType: String, val displayName: String, val resourceTypes: Array<ResourceType>) {
     GARAGE_DOOR_OPENER("com.autobridge.d.garageDoorOpener", "Garage Door Opener", arrayOf(ResourceType.DOOR)),
+    DOOR_OPENER("com.autobridge.d.doorOpener", "Door Opener", arrayOf(ResourceType.DOOR, ResourceType.CONTACT_SENSOR)),
     SPEECH_SYNTHESIZER("com.autobridge.d.speechSynthesizer", "Speech Synthesizer", arrayOf(ResourceType.SPEECH_TTS)),
     CAMERA("com.autobridge.d.camera", "Camera", arrayOf(ResourceType.IMAGE_CAPTURE)),
     LIGHT("com.autobridge.d.light", "Light", arrayOf(ResourceType.BINARY_SWITCH)),
@@ -23,5 +25,6 @@ enum class ResourceType(val ocfResourceType: String, val propertyNames: Array<St
     BINARY_SWITCH("oic.r.switch.binary", arrayOf("value")),
     ILLUMINANCE_MEASUREMENT("oic.r.sensor.illuminance", arrayOf("illuminance")),
     SOUND_PRESSURE_LEVEL_MEASUREMENT("", arrayOf("soundPressureLevel")),
-    SOUND_DETECTOR("", arrayOf("sound"))
+    SOUND_DETECTOR("", arrayOf("sound")),
+    CONTACT_SENSOR("oic.r.sensor.contact", arrayOf("value"))
 }

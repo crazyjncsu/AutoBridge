@@ -1,6 +1,5 @@
 package com.autobridge.android
 
-import android.content.Context
 import android.media.MediaRecorder
 
 class SoundLevelSampler {
@@ -16,9 +15,9 @@ class SoundLevelSampler {
         override fun run() {
             synchronized(this@SoundLevelSampler.syncLock) {
                 while (this@SoundLevelSampler.listeners.count() != 0) {
-                    val spl = Math.round(20 * Math.log10((this@SoundLevelSampler.mediaRecorder.maxAmplitude / 51805.5336) / 0.00002)).toDouble();
+                    val spl = Math.round(20 * Math.log10((this@SoundLevelSampler.mediaRecorder.maxAmplitude / 51805.5336) / 0.00002)).toDouble()
                     this@SoundLevelSampler.listeners.forEach { it.onSampleProduced(spl) }
-                    this@SoundLevelSampler.syncLock.wait(250);
+                    this@SoundLevelSampler.syncLock.wait(250)
                 }
             }
         }
@@ -26,7 +25,7 @@ class SoundLevelSampler {
 
     fun registerListener(listener: Listener) {
         synchronized(this.syncLock) {
-            this.listeners.add(listener);
+            this.listeners.add(listener)
 
             if (this.listeners.count() == 1) {
                 this.mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)

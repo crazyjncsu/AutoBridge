@@ -1,6 +1,8 @@
 package com.autobridge.android
 
 import android.util.Log
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.async
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.message.BasicNameValuePair
 import org.json.JSONArray
@@ -59,6 +61,12 @@ fun performJsonHttpRequest(
     }
 }
 
+fun asyncTryLog(proc: () -> Unit) {
+    async(CommonPool) {
+        tryLog(proc);
+    }
+}
+
 fun tryLog(proc: () -> Unit) {
     try {
         proc()
@@ -69,5 +77,7 @@ fun tryLog(proc: () -> Unit) {
 
 fun ifApiLevel(api: Int, proc: () -> Unit) {
     if (api <= android.os.Build.VERSION.SDK_INT)
-        proc();
+        proc()
 }
+
+fun Byte.toUnsignedInt() = toInt() and 0xFF
