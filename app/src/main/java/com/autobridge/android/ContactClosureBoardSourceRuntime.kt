@@ -34,6 +34,7 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
             val isOpen = isOpen(openState)
             val contactID = this.parameters.configuration.getString(if (isOpen) "closeContactID" else "openContactID")
 
+            // TODO work on something to make sure two of these can't run at once
             if (propertyValue != openState)
                 this@ContactClosureBoardSourceRuntime.setContactStateAsync(contactID, false) {
                     Thread.sleep(this.parameters.configuration.getInt(if (isOpen(openState)) "closeDurationSeconds" else "openDurationSeconds") * 1000L)
@@ -136,7 +137,7 @@ class UsbHidContactClosureBoardSourceRuntime(parameters: RuntimeParameters, list
         val pinNumber = contactID[1].toInt();
         val array = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0)
 
-        val result = usbDeviceConnection.controlTransfer(
+        usbDeviceConnection.controlTransfer(
                 0xA0,
                 1,
                 0,

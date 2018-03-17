@@ -81,3 +81,10 @@ fun ifApiLevel(api: Int, proc: () -> Unit) {
 }
 
 fun Byte.toUnsignedInt() = toInt() and 0xFF
+
+fun <T> T.mutate(proc: (T) -> Unit): T {
+    proc(this)
+    return this;
+}
+
+fun <T> Any.to() = this as T;

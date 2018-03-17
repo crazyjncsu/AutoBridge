@@ -1,18 +1,26 @@
 package com.autobridge.android
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.util.*
+import android.net.wifi.WifiManager.MulticastLock
+import android.content.Context.WIFI_SERVICE
+import android.net.wifi.WifiManager
+
 
 class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
     private val timer = Timer()
 
-    private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
+    private var multicastLock: MulticastLock? = null;
 
+    private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
+        override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
+                this@Service.runtimes.map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it.parameters.id)) }
     })
 
     private val webServer = object : WebServer(1035) {
@@ -122,8 +130,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             )
     )
 
-    private
-    val targetRuntimes = arrayOf(
+    private val targetRuntimes = arrayOf(
             SmartThingsTargetRuntime(
                     RuntimeParameters(
                             "d2accd0f-eb6a-4393-bfe8-e380e8d857f9",
@@ -134,23 +141,24 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             )
     )
 
-    private
-    val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
+    private val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
 
-    private
-    val sourceToTargetsMap = mapOf(
+    private val sourceToTargetsMap = mapOf(
             this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0])
     )
 
-    private
-    val targetToSourcesMap = mapOf(
+    private val targetToSourcesMap = mapOf(
             this.targetRuntimes[0] to this.sourceRuntimes
     )
 
     override fun onCreate() {
         super.onCreate()
+
+        this.multicastLock = this.getSystemService(Context.WIFI_SERVICE).to<WifiManager>().createMulticastLock("default")
+        this.multicastLock?.acquire()
+
         this.ssdpServer.start()
         this.webServer.start()
         this.runtimes.forEach { it.startOrStop(true, this.applicationContext) }
@@ -174,6 +182,8 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.webServer.stop()
         this.runtimes.forEach { it.startOrStop(false, this.baseContext) }
         this.timer.cancel()
+
+        this.multicastLock?.release();
     }
 
     override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
