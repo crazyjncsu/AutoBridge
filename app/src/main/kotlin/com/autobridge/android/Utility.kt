@@ -1,19 +1,18 @@
 package com.autobridge.android
 
 import android.util.Log
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
-import org.apache.http.client.utils.URLEncodedUtils
-import org.apache.http.message.BasicNameValuePair
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLEncoder
 import kotlin.coroutines.experimental.buildSequence
 
-fun Map<String, String>.toQueryString() = URLEncodedUtils.format(this.entries.map { BasicNameValuePair(it.key, it.value) }, "UTF-8")
+fun Map<String, String>.toQueryString() = this.entries
+        .map { URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8") }
+        .joinToString("&")
 
 fun JSONArray.toJSONObjectSequence(): Sequence<JSONObject> {
     val length = this.length()
@@ -53,7 +52,7 @@ fun performJsonHttpRequest(
             (if (responseCode >= 400) errorStream else inputStream).use {
                 return InputStreamReader(it)
                         .readText()
-                        .let { if (it.isNullOrEmpty()) JSONObject() else JSONObject(it) }
+                        .let { if (it.isEmpty()) JSONObject() else JSONObject(it) }
             }
         } finally {
             disconnect()
@@ -62,9 +61,9 @@ fun performJsonHttpRequest(
 }
 
 fun asyncTryLog(proc: () -> Unit) {
-    async(CommonPool) {
-        tryLog(proc);
-    }
+    //async(CommonPool) {
+    tryLog(proc)
+    //}
 }
 
 fun tryLog(proc: () -> Unit) {
@@ -84,7 +83,8 @@ fun Byte.toUnsignedInt() = toInt() and 0xFF
 
 fun <T> T.mutate(proc: (T) -> Unit): T {
     proc(this)
-    return this;
+    return this
 }
 
-fun <T> Any.to() = this as T;
+@Suppress("UNCHECKED_CAST")
+fun <T> Any.to() = this as T

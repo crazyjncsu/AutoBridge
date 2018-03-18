@@ -16,7 +16,7 @@ class SsdpServer(val listener: Listener) {
                     val networkInterface = NetworkInterface.getNetworkInterfaces()
                             .asSequence()
                             .filter { it.inetAddresses.asSequence().filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }.any() }
-                            .first();
+                            .first()
 
                     MulticastSocket(1900).use { multicastSocket ->
                         this@SsdpServer.closeableToStop = multicastSocket
@@ -29,7 +29,7 @@ class SsdpServer(val listener: Listener) {
                         )
 
                         DatagramSocket(null).use { unicastSocket ->
-                            unicastSocket.reuseAddress = true;
+                            unicastSocket.reuseAddress = true
 
                             val bindAddress = networkInterface.inetAddresses.asSequence().filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }.first()
                             unicastSocket.bind(InetSocketAddress(bindAddress, 1900))
@@ -48,7 +48,7 @@ class SsdpServer(val listener: Listener) {
                                     Log.v(TAG, "SSDP multicast packet is a search...")
 
                                     while (scanner.hasNext()) {
-                                        val lineParts = scanner.nextLine().split(':', limit = 2);
+                                        val lineParts = scanner.nextLine().split(':', limit = 2)
 
                                         if (lineParts[0] == "ST") {
                                             this@SsdpServer.listener.onSearch(lineParts[1].trim()).forEach {
@@ -68,7 +68,7 @@ class SsdpServer(val listener: Listener) {
                                                 Log.v(TAG, "Sending SSDP response (st: ${it.st}, usn: ${it.usn}) to ${packet.address}:${packet.port}")
 
                                                 var responsePacket = responseString.toByteArray().let { DatagramPacket(it, it.count(), packet.address, packet.port) }
-                                                unicastSocket.send(responsePacket);
+                                                unicastSocket.send(responsePacket)
                                             }
                                         }
                                     }
@@ -93,7 +93,7 @@ class SsdpServer(val listener: Listener) {
     }
 
     interface Listener {
-        fun onSearch(st: String): List<SearchResponse>;
+        fun onSearch(st: String): List<SearchResponse>
 
         data class SearchResponse(val st: String, val usn: UUID)
     }

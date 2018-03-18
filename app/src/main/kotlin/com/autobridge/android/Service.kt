@@ -9,14 +9,16 @@ import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.util.*
 import android.net.wifi.WifiManager.MulticastLock
-import android.content.Context.WIFI_SERVICE
 import android.net.wifi.WifiManager
+import com.autobridge.android.source.*
+import com.autobridge.android.target.DeviceTargetRuntime
+import com.autobridge.android.target.SmartThingsTargetRuntime
 
 
 class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
     private val timer = Timer()
 
-    private var multicastLock: MulticastLock? = null;
+    private var multicastLock: MulticastLock? = null
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
@@ -38,6 +40,45 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     }
 
     private val sourceRuntimes = arrayOf(
+            BluetoothLowEnergyContactClosureBoardSourceRuntime(
+                    RuntimeParameters(
+                            "175506b4-2e19-4d00-8942-4c02c9dc9e72",
+                            JSONObject(mapOf(
+                                    //"usbProductID" to 1503,
+                                    //"usbVendorID" to 5824,
+                                    "devices" to arrayOf(
+                                            JSONObject(mapOf(
+                                                    "id" to "9bee98f9-0c6d-49d8-b212-d6fdefbe0388",
+                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
+                                                    "name" to "Bluetooth Light 4",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "contactID" to "R4"
+                                                    ))
+                                            )),
+                                            JSONObject(mapOf(
+                                                    "id" to "639b61b1-b0b6-4b73-8b82-0985c9883773",
+                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
+                                                    "name" to "Bluetooth Light 3",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "contactID" to "R3"
+                                                    ))
+                                            )),
+                                            JSONObject(mapOf(
+                                                    "id" to "76a4f870-c26d-4ad0-b246-aa5fcaa20989",
+                                                    "type" to DeviceType.DOOR_OPENER.ocfDeviceType,
+                                                    "name" to "Bluetooth Door 1 and 2",
+                                                    "configuration" to JSONObject(mapOf(
+                                                            "openContactID" to "R1",
+                                                            "closeContactID" to "R2",
+                                                            "openDurationSeconds" to 4,
+                                                            "closeDurationSeconds" to 4
+                                                    ))
+                                            ))
+                                    ))),
+                            JSONObject()
+                    ),
+                    this
+            ),
             UsbHidContactClosureBoardSourceRuntime(
                     RuntimeParameters(
                             "7b7b88c4-740e-4341-885f-77a4a2bf1342",
@@ -183,7 +224,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.runtimes.forEach { it.startOrStop(false, this.baseContext) }
         this.timer.cancel()
 
-        this.multicastLock?.release();
+        this.multicastLock?.release()
     }
 
     override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {

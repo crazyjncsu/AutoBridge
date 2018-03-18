@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge.android.source
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -10,7 +10,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import org.json.JSONObject
+import com.autobridge.android.*
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
     protected override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
@@ -72,6 +72,7 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
         this.listener.onStateDiscovered(this, propertyName, propertyValue)
     }
 
+    @Suppress("DEPRECATION")
     override fun onInit(p0: Int) {
         this.textToSpeech.setSpeechRate(0.8f)
 
@@ -93,7 +94,7 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
     override fun startOrStop(startOrStop: Boolean, context: Context) {
         ifApiLevel(23) {
             if (startOrStop)
-                this.cameraManager = context.getSystemService("camera") as CameraManager // Context.CAMERA_SERVICE won't compile?
+                this.cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         }
     }
 
