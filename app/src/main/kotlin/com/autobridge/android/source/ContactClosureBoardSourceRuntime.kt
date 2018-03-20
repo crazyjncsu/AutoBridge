@@ -19,7 +19,7 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
         private fun isOpen(openState: String) = openState == "Open"
 
         override fun startDiscoverState() =
-                this.listener.onStateDiscovered(this, this.openStatePropertyName, this.getOpenState())
+                this.onOpenStateDiscovered(this.getOpenState())
 
         override fun startSetState(propertyName: String, propertyValue: String) {
             val openState = this.getOpenState()
@@ -33,9 +33,14 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
                     this@ContactClosureBoardSourceRuntime.setContactStateAsync(contactID, true) {
                         val newOpenState = if (isOpen) "Closed" else "Open"
                         this.parameters.state.put(this.openStatePropertyName, newOpenState)
-                        this.listener.onStateDiscovered(this, this.openStatePropertyName, newOpenState)
+                        this.onOpenStateDiscovered(newOpenState)
                     }
                 }
+        }
+
+        private fun onOpenStateDiscovered(openState: String) {
+            this.listener.onStateDiscovered(this, this.openStatePropertyName, openState)
+            this.listener.onStateDiscovered(this, "value", if (openState == "Open") "true" else "false")
         }
     }
 

@@ -25,6 +25,9 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                 this@Service.runtimes.map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it.parameters.id)) }
     })
 
+    private val networkDiscoverer = NetworkDiscoverer()
+    private var lastNetworkDiscoveryTickCount = 0L;
+
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
             this@Service.targetRuntimes
@@ -44,8 +47,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                     RuntimeParameters(
                             "175506b4-2e19-4d00-8942-4c02c9dc9e72",
                             JSONObject(mapOf(
-                                    //"usbProductID" to 1503,
-                                    //"usbVendorID" to 5824,
+                                    "bluetoothAddress" to "30:AE:A4:44:FC:C2",
                                     "devices" to arrayOf(
                                             JSONObject(mapOf(
                                                     "id" to "9bee98f9-0c6d-49d8-b212-d6fdefbe0388",
@@ -144,8 +146,8 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                             "id" to "illuminanceSensor",
                                             "name" to "Android Light Sensor",
                                             "configuration" to JSONObject(mapOf(
-                                                    "reportIntervalMillisecondCount" to 60_000,
-                                                    "reportPercentageChange" to 0.5
+                                                    "reportIntervalMillisecondCount" to 60_000
+                                                    //"reportPercentageChange" to 0.5 // flashes between 0 and 1
                                             ))
                                     )),
                                     JSONObject(mapOf(
@@ -153,7 +155,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                             "name" to "Android SPL Meter",
                                             "configuration" to JSONObject(mapOf(
                                                     "reportIntervalMillisecondCount" to 60_000,
-                                                    "reportValueChange" to 30.0
+                                                    "reportValueChange" to 60.0
                                             ))
                                     )),
                                     JSONObject(mapOf(
@@ -161,7 +163,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                                             "name" to "Android Sound Sensor",
                                             "configuration" to JSONObject(mapOf(
                                                     "reportValueChange" to 1,
-                                                    "threshold" to 50
+                                                    "threshold" to 80
                                             ))
                                     ))
                             ))),
@@ -187,7 +189,8 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
     private val sourceToTargetsMap = mapOf(
             this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
             this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0]),
-            this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0])
+            this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0]),
+            this.sourceRuntimes[3] to arrayOf(this.targetRuntimes[0])
     )
 
     private val targetToSourcesMap = mapOf(
@@ -206,7 +209,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.timer.schedule(object : TimerTask() {
             override fun run() {
                 this@Service.sourceRuntimes
-                        .forEach { it.startDiscoverDevices() }
+                        .forEach { it.startDiscoverDevices(true) }
 
                 this@Service.targetRuntimes
                         .forEach { targetRuntime ->
@@ -227,12 +230,26 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.multicastLock?.release()
     }
 
+    override fun onSyncError(mayNeedDiscovery: Boolean) {
+        val ticksUntilDiscovery = this.lastNetworkDiscoveryTickCount - System.currentTimeMillis() + 300_000;
+
+        if (ticksUntilDiscovery <= 0)
+            this.networkDiscoverer.startDiscovery()
+        else
+            this.timer.schedule(
+                    object : TimerTask() {
+                        override fun run() = this@Service.networkDiscoverer.startDiscovery()
+                    },
+                    ticksUntilDiscovery
+            )
+    }
+
     override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
         Log.v(TAG, "Received devices sync request; starting to discover devices state for source '$sourceID'...")
 
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
-                .forEach { it.startDiscoverDevices() }
+                .forEach { it.startDiscoverDevices(true) }
     }
 
     override fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String) {

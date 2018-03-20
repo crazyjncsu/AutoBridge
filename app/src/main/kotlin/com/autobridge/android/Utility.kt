@@ -5,9 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URI
-import java.net.URLEncoder
+import java.net.*
 import kotlin.coroutines.experimental.buildSequence
 
 fun Map<String, String>.toQueryString() = this.entries
@@ -60,10 +58,14 @@ fun performJsonHttpRequest(
     }
 }
 
+fun async(proc: () -> Unit) {
+    THREAD_POOL.execute(object : Runnable {
+        override fun run() = proc()
+    })
+}
+
 fun asyncTryLog(proc: () -> Unit) {
-    //async(CommonPool) {
-    tryLog(proc)
-    //}
+    async { tryLog(proc) }
 }
 
 fun tryLog(proc: () -> Unit) {
@@ -88,3 +90,12 @@ fun <T> T.mutate(proc: (T) -> Unit): T {
 
 @Suppress("UNCHECKED_CAST")
 fun <T> Any.to() = this as T
+
+fun isAddressValid(address: InetAddress) = !address.isLoopbackAddress && !address.isLinkLocalAddress;
+
+fun getActiveNetworkInterface() = NetworkInterface.getNetworkInterfaces()
+        .asSequence()
+        .filter { it.inetAddresses.asSequence().filter { isAddressValid(it) }.any() }
+        .first()
+
+fun getIPAddress(addressOnSubnet: InetAddress, networkPrefixLength: Int, ordinalOnSubnet: Int) =

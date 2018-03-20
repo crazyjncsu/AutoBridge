@@ -2,54 +2,124 @@ package com.autobridge.android.source
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
-import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
+import android.bluetooth.le.*
 import android.content.Context
 import android.util.Log
 import com.autobridge.android.RuntimeParameters
 import com.autobridge.android.TAG
+import com.autobridge.android.asyncTryLog
+import java.util.*
 
+@SuppressLint("NewApi")
 class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ContactClosureBoardSourceRuntime(parameters, listener) {
-    override fun getContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit) {
+    private var context: Context? = null;
+    private var scanner: BluetoothLeScanner? = null;
+    private var gatt: BluetoothGatt? = null;
+    private var characteristic: BluetoothGattCharacteristic? = null;
+    private val getContactStateRequestList = mutableListOf<GetContactStateRequest>()
+    private val setContactStateRequestList = mutableListOf<SetContactStateRequest>()
 
-    }
+    data class GetContactStateRequest(val contactID: String, val callback: (openOrClosed: Boolean) -> Unit);
+    data class SetContactStateRequest(val contactID: String, val openOrClosed: Boolean, val callback: () -> Unit);
 
-    override fun setContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit) {
-    }
+    // these were first here because of unreliability in issuing the read request when other read requests were finishing,
+    // but this became extra useful when we realize that it takes a while and there can be issues with connecting, reconnecting, etc
+    private val timer = Timer()
+    private var timerTask: TimerTask? = null;
 
-    @SuppressLint("NewApi")
-    override fun startOrStop(startOrStop: Boolean, context: Context) {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val callback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            this@BluetoothLowEnergyContactClosureBoardSourceRuntime.scanner?.stopScan(this)
 
-        bluetoothManager.adapter.bluetoothLeScanner.startScan(object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult?) {
-                Log.v(TAG, "got scan result: " + result?.device)
+            this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt = result?.device?.connectGatt(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.context, true, object : BluetoothGattCallback() {
+                override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED)
+                        gatt?.discoverServices()
+                }
 
-                val gatt: BluetoothGatt? = result?.device?.connectGatt(context, true, object : BluetoothGattCallback() {
-                    override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-                        Log.v(TAG, "connection state changed: " + newState)
-                    }
+                override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
+                    this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic = gatt
+                            ?.services
+                            ?.flatMap { it.characteristics!! }
+                            ?.filter { (it.properties and (BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE)) == (BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE) }
+                            ?.firstOrNull();
 
-                    override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
-                        Log.v(TAG, "wrote characteristic")
-                    }
-                })
+                    this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic?.let { gatt?.readCharacteristic(it) }
+                }
 
-                gatt?.services?.forEach {
-                    Log.v(TAG, "got service: " + it.uuid)
+                override fun onCharacteristicRead(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
+                    Log.i(TAG, "Contact state read complete")
 
-                    it.characteristics.forEach {
-                        Log.v(TAG, "got characteristic: " + it.uuid)
+                    synchronized(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList) {
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.timerTask?.cancel();
 
-                        it.setValue(byteArrayOf(
-                                if (Math.random() > 0.5) 0 else 1,
-                                if (Math.random() > 0.5) 0 else 1,
-                                if (Math.random() > 0.5) 0 else 1,
-                                if (Math.random() > 0.5) 0 else 1
-                        ))
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.forEach {
+                            val contactIndex = it.contactID[1].toString().toInt() - 1;
+                            asyncTryLog { it.callback(characteristic!!.value[contactIndex].toInt() == 0) }
+                        }
+
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.clear();
+
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.forEach {
+                            val contactIndex = it.contactID[1].toString().toInt() - 1;
+                            characteristic!!.value[contactIndex] = if (it.openOrClosed) 0 else 1
+                            asyncTryLog { it.callback() }
+                        }
+
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.clear();
+
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt?.writeCharacteristic(characteristic)
                     }
                 }
+            })
+        }
+    }
+
+    // all of this stuff is kind of funny, because we can't read contacts but all at once
+    // and it may be worth refactoring, except we really need to write the pins individually which
+    // truly requires the read-first weird logic anyway
+    override fun getContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit) =
+            this.performGetOrSet { this.getContactStateRequestList.add(GetContactStateRequest(contactID, callback)) }
+
+    override fun setContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit) =
+            this.performGetOrSet { this.setContactStateRequestList.add(SetContactStateRequest(contactID, openOrClosed, callback)) }
+
+    private fun performGetOrSet(proc: () -> Unit) =
+            synchronized(this.getContactStateRequestList) {
+                val currentTickCount = System.currentTimeMillis()
+
+                if (this.getContactStateRequestList.count() == 0 && this.setContactStateRequestList.count() == 0) {
+                    this.timerTask = object : TimerTask() {
+                        override fun run() {
+                            if (this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt != null && this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic != null) {
+                                Log.i(TAG, "Reading contact state")
+                                this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt?.readCharacteristic(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic)
+                            }
+                        }
+                    }
+
+                    this.timer.schedule(this.timerTask, 0, 2000)
+                }
+
+                proc()
             }
-        })
+
+    override fun startOrStop(startOrStop: Boolean, context: Context) {
+        if (startOrStop) {
+            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+
+            this.scanner = bluetoothManager.adapter.bluetoothLeScanner
+
+            this.scanner?.startScan(
+                    listOf(ScanFilter.Builder().setDeviceAddress(this.parameters.configuration.getString("bluetoothAddress")).build()),
+                    ScanSettings.Builder().setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH).build(),
+                    this.callback
+            )
+        } else {
+            this.gatt?.disconnect()
+            this.gatt?.close()
+
+            this.scanner?.stopScan(this.callback)
+        }
     }
 }

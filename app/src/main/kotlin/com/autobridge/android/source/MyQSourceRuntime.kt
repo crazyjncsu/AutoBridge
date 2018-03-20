@@ -9,7 +9,7 @@ import java.lang.IllegalArgumentException
 class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : PollingDeviceSourceRuntime(parameters, listener) {
     private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
 
-    override fun startDiscoverDevices() {
+    override fun startDiscoverDevices(shouldIncludeState: Boolean) {
         asyncTryLog {
             fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
                     .getJSONArray("Attributes")
@@ -44,17 +44,18 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
                     deviceInfos.map { it.definition }.toList()
             )
 
-            deviceInfos.forEach { deviceInfo ->
-                deviceInfo.state.forEach {
-                    this@MyQSourceRuntime.listener.onDeviceStateDiscovered(this@MyQSourceRuntime, deviceInfo.definition.id, deviceInfo.definition.type, it.key, it.value)
+            if (shouldIncludeState)
+                deviceInfos.forEach { deviceInfo ->
+                    deviceInfo.state.forEach {
+                        this@MyQSourceRuntime.listener.onDeviceStateDiscovered(this@MyQSourceRuntime, deviceInfo.definition.id, deviceInfo.definition.type, it.key, it.value)
+                    }
                 }
-            }
         }
     }
 
-    override fun poll() = this.startDiscoverDevices()
+    override fun poll() = this.startDiscoverDevices(true)
 
-    override fun startDiscoverDeviceState(deviceID: String) = this.startDiscoverDevices()
+    override fun startDiscoverDeviceState(deviceID: String) = this.startDiscoverDevices(true)
 
     override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
         val attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException()

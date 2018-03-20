@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.util.*
 
 abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
-    abstract fun startDiscoverDevices()
+    abstract fun startDiscoverDevices(shouldIncludeState: Boolean)
     abstract fun startDiscoverDeviceState(deviceID: String)
     abstract fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String)
 
@@ -14,6 +14,17 @@ abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: 
         fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>)
         fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
     }
+}
+
+open class DeviceRuntimeParameters(id: String, configuration: JSONObject, state: JSONObject, val name: String) : RuntimeParameters(id, configuration, state)
+
+abstract class DeviceRuntime(parameters: DeviceRuntimeParameters, val listener: Listener, val deviceType: DeviceType) : RuntimeBase(parameters) {
+    interface Listener {
+        fun onStateDiscovered(deviceRuntime: DeviceRuntime, propertyName: String, propertyValue: String)
+    }
+
+    abstract fun startDiscoverState()
+    abstract fun startSetState(propertyName: String, propertyValue: String)
 }
 
 abstract class ConfigurationDeviceSourceRuntime(parameters: RuntimeParameters, listener: Listener) : DeviceSourceRuntime(parameters, listener), DeviceRuntime.Listener {
@@ -41,7 +52,7 @@ abstract class ConfigurationDeviceSourceRuntime(parameters: RuntimeParameters, l
     override fun onStateDiscovered(deviceRuntime: DeviceRuntime, propertyName: String, propertyValue: String) =
             this.listener.onDeviceStateDiscovered(this, deviceRuntime.parameters.id, deviceRuntime.deviceType, propertyName, propertyValue)
 
-    override fun startDiscoverDevices() {
+    override fun startDiscoverDevices(shouldIncludeState: Boolean) {
         asyncTryLog {
             this@ConfigurationDeviceSourceRuntime.listener.onDevicesDiscovered(
                     this@ConfigurationDeviceSourceRuntime,
@@ -49,6 +60,9 @@ abstract class ConfigurationDeviceSourceRuntime(parameters: RuntimeParameters, l
                             .map { DeviceDefinition(it.parameters.id, it.deviceType, (it.parameters as DeviceRuntimeParameters).name) }
                             .toList()
             )
+
+            if (shouldIncludeState)
+                this@ConfigurationDeviceSourceRuntime.deviceRuntimes.forEach { it.startDiscoverState() }
         }
     }
 

@@ -13,10 +13,7 @@ class SsdpServer(val listener: Listener) {
         override fun run() {
             while (!this@SsdpServer.isStopping) {
                 tryLog {
-                    val networkInterface = NetworkInterface.getNetworkInterfaces()
-                            .asSequence()
-                            .filter { it.inetAddresses.asSequence().filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }.any() }
-                            .first()
+                    val networkInterface = getActiveNetworkInterface()
 
                     MulticastSocket(1900).use { multicastSocket ->
                         this@SsdpServer.closeableToStop = multicastSocket
@@ -31,7 +28,7 @@ class SsdpServer(val listener: Listener) {
                         DatagramSocket(null).use { unicastSocket ->
                             unicastSocket.reuseAddress = true
 
-                            val bindAddress = networkInterface.inetAddresses.asSequence().filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }.first()
+                            val bindAddress = networkInterface.inetAddresses.asSequence().filter { isAddressValid(it) }.first()
                             unicastSocket.bind(InetSocketAddress(bindAddress, 1900))
 
                             while (!this@SsdpServer.isStopping) {
