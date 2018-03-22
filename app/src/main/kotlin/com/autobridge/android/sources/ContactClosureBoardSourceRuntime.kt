@@ -1,4 +1,4 @@
-package com.autobridge.android.source
+package com.autobridge.android.sources
 
 import com.autobridge.android.*
 

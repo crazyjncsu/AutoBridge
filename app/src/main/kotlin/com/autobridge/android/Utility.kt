@@ -97,5 +97,3 @@ fun getActiveNetworkInterface() = NetworkInterface.getNetworkInterfaces()
         .asSequence()
         .filter { it.inetAddresses.asSequence().filter { isAddressValid(it) }.any() }
         .first()
-
-fun getIPAddress(addressOnSubnet: InetAddress, networkPrefixLength: Int, ordinalOnSubnet: Int) =

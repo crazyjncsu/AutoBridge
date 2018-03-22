@@ -1,8 +1,9 @@
-package com.autobridge.android.target
+package com.autobridge.android.targets
 
 import com.autobridge.android.*
 import org.json.JSONObject
 import org.json.JSONArray
+import java.net.InetAddress
 
 private val smartThingsToStandardMap = mapOf(
         Pair("door", "open") to Triple(ResourceType.DOOR, "openState", "Open"),
@@ -36,6 +37,13 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
                         it?.third ?: propertyValue
                 )
             }
+    }
+
+    override fun processMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {
+        if (macAddress[0].toUnsignedInt() == 0x24 && macAddress[1].toUnsignedInt() == 0xFD && macAddress[2].toUnsignedInt() == 0x5B) { // smartthings has own MAC prefix
+            this.parameters.state.put("hubIPAddress", ipAddress.hostAddress)
+            this.listener.onRejuvenated(this);
+        }
     }
 
     override fun startSyncSources(sourceIDs: List<String>) {
@@ -88,13 +96,12 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
             performJsonHttpRequest(
                     "POST",
                     "http",
-                    this.parameters.state.getString("authority"),
-                    //"10.0.2.2:1000",
+                    this.parameters.state.optString("hubIPAddress") + ":39500",
                     "/auto-bridge",
                     bodyObject = bodyObject
             )
         } catch (ex: Exception) { // could we catch more specific exception for this?
-            this.listener.onSyncError(true)
+            this.listener.onSyncError(this, true)
         }
     }
 }

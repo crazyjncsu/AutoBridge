@@ -10,12 +10,15 @@ import org.json.JSONObject
 import java.util.*
 import android.net.wifi.WifiManager.MulticastLock
 import android.net.wifi.WifiManager
-import com.autobridge.android.source.*
-import com.autobridge.android.target.DeviceTargetRuntime
-import com.autobridge.android.target.SmartThingsTargetRuntime
+import com.autobridge.android.sources.*
+import com.autobridge.android.targets.DeviceTargetRuntime
+import com.autobridge.android.targets.SmartThingsTargetRuntime
+import org.json.JSONArray
+import java.io.File
+import java.net.InetAddress
 
 
-class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
+class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener, NetworkDiscoverer.Listener {
     private val timer = Timer()
 
     private var multicastLock: MulticastLock? = null
@@ -25,7 +28,7 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
                 this@Service.runtimes.map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it.parameters.id)) }
     })
 
-    private val networkDiscoverer = NetworkDiscoverer()
+    private val networkDiscoverer = NetworkDiscoverer(this)
     private var lastNetworkDiscoveryTickCount = 0L;
 
     private val webServer = object : WebServer(1035) {
@@ -197,8 +200,41 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
             this.targetRuntimes[0] to this.sourceRuntimes
     )
 
+    private fun getConfiguration() = JSONObject(mapOf(
+            "sources" to JSONArray(this.sourceRuntimes.map {
+                JSONObject(mapOf(
+                        "sourceID" to it.parameters.id,
+                        "type" to it.javaClass.name,
+                        "configuration" to it.parameters.configuration
+                ))
+            }),
+            "targets" to JSONArray(this.targetRuntimes.map {
+                JSONObject(mapOf(
+                        "targetID" to it.parameters.id,
+                        "type" to it.javaClass.name,
+                        "configuration" to it.parameters.configuration
+                ))
+            }),
+            "bridges" to JSONArray(this.sourceToTargetsMap.entries
+                    .flatMap { entry ->
+                        entry.value.map {
+                            JSONObject(mapOf(
+                                    "sourceID" to entry.key.parameters.id,
+                                    "targetID" to it.parameters.id
+                            ))
+                        }
+                    }
+            )
+    ))
+
+    private fun writeConfiguration() =
+            File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.getConfiguration().toString(4))
+
+    @SuppressLint("NewApi")
     override fun onCreate() {
         super.onCreate()
+
+        this.writeConfiguration()
 
         this.multicastLock = this.getSystemService(Context.WIFI_SERVICE).to<WifiManager>().createMulticastLock("default")
         this.multicastLock?.acquire()
@@ -230,18 +266,28 @@ class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetR
         this.multicastLock?.release()
     }
 
-    override fun onSyncError(mayNeedDiscovery: Boolean) {
-        val ticksUntilDiscovery = this.lastNetworkDiscoveryTickCount - System.currentTimeMillis() + 300_000;
+    override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) =
+            this.runtimes.forEach { it.processMacAddressDiscovered(ipAddress, macAddress) }
 
-        if (ticksUntilDiscovery <= 0)
-            this.networkDiscoverer.startDiscovery()
-        else
-            this.timer.schedule(
-                    object : TimerTask() {
-                        override fun run() = this@Service.networkDiscoverer.startDiscovery()
-                    },
-                    ticksUntilDiscovery
-            )
+    override fun onSyncError(targetRuntime: DeviceTargetRuntime, mayNeedDiscovery: Boolean) {
+        Log.v(TAG, "Received sync error for target runtime $targetRuntime")
+
+        if (mayNeedDiscovery)
+            synchronized(this.networkDiscoverer) {
+                val ticksUntilDiscovery = this.lastNetworkDiscoveryTickCount - System.currentTimeMillis() + 300_000;
+
+                if (ticksUntilDiscovery <= 0) {
+                    this.networkDiscoverer.startDiscovery()
+                    this.lastNetworkDiscoveryTickCount = System.currentTimeMillis()
+                }
+            }
+    }
+
+    override fun onRejuvenated(targetRuntime: DeviceTargetRuntime) {
+        Log.v(TAG, "Rejuvenated target runtime $targetRuntime; starting to discover devices for all its sources...")
+
+        this.targetToSourcesMap[targetRuntime]!!
+                .forEach { it.startDiscoverDevices(true) }
     }
 
     override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {

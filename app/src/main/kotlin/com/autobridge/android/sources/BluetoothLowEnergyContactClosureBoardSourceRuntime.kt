@@ -1,4 +1,4 @@
-package com.autobridge.android.source
+package com.autobridge.android.sources
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
@@ -86,8 +86,6 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
 
     private fun performGetOrSet(proc: () -> Unit) =
             synchronized(this.getContactStateRequestList) {
-                val currentTickCount = System.currentTimeMillis()
-
                 if (this.getContactStateRequestList.count() == 0 && this.setContactStateRequestList.count() == 0) {
                     this.timerTask = object : TimerTask() {
                         override fun run() {

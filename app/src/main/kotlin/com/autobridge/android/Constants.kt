@@ -1,11 +1,16 @@
 package com.autobridge.android
 
+import android.support.v4.content.FileProvider
 import java.util.concurrent.Executors
+
+class ConfigurationFileProvider : FileProvider()
 
 val TAG = "AutoBridge"
 val USB_PERMISSION = "com.android.example.USB_PERMISSION"
 
 val THREAD_POOL = Executors.newCachedThreadPool()
+
+val CONFIGURATION_FILE_NAME = "configuration.json"
 
 enum class DeviceType(val ocfDeviceType: String, val displayName: String, val resourceTypes: Array<ResourceType>) {
     GARAGE_DOOR_OPENER("com.autobridge.d.garageDoorOpener", "Garage Door Opener", arrayOf(ResourceType.DOOR)),

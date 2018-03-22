@@ -1,4 +1,4 @@
-package com.autobridge.android.target
+package com.autobridge.android.targets
 
 import com.autobridge.android.DeviceDefinition
 import com.autobridge.android.DeviceType
@@ -11,7 +11,8 @@ abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: 
     abstract fun startSyncDeviceState(sourceID: String, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
 
     interface Listener {
-        fun onSyncError(mayNeedDiscovery: Boolean)
+        fun onRejuvenated(targetRuntime: DeviceTargetRuntime);
+        fun onSyncError(targetRuntime: DeviceTargetRuntime, mayNeedDiscovery: Boolean)
         fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String)
         fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String)
         fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String)

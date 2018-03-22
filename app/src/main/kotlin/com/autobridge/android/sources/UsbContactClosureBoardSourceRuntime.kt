@@ -1,4 +1,4 @@
-package com.autobridge.android.source
+package com.autobridge.android.sources
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver

@@ -1,39 +1,52 @@
 package com.autobridge.android
 
+import java.io.File
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InterfaceAddress
 import java.nio.ByteBuffer
+import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
-class NetworkDiscoverer {
+class NetworkDiscoverer(val listener: Listener) {
     fun startDiscovery() {
-        val networkInterface = getActiveNetworkInterface()
+        asyncTryLog {
+            val networkInterface = getActiveNetworkInterface()
 
-        val executor = Executors.newFixedThreadPool(4)
+            val executor = Executors.newFixedThreadPool(16)
 
-        val subnetAddresses = networkInterface.interfaceAddresses.flatMap<InterfaceAddress, Inet4Address> {
-            val subnetBitCount = 32 - it.networkPrefixLength
-            val subnetBaseAddress = it.address.address.map { it.toInt() }.reduce { acc, byte -> acc shl 8 or byte } and 0xFFFFFFFF.toInt() shl subnetBitCount
-            (0..(1 shl subnetBitCount)).map {
-                InetAddress.getByAddress(ByteBuffer.allocate(4).putInt(subnetBaseAddress or it).array()) as Inet4Address
-            }
-        }
+            val subnetAddresses = networkInterface.interfaceAddresses
+                    .filter { it.address is Inet4Address }
+                    .flatMap<InterfaceAddress, Inet4Address> {
+                        val subnetBitCount = 32 - it.networkPrefixLength
+                        val subnetBaseAddress = (it.address.address.map { it.toUnsignedInt().toLong() }.reduce { acc, byte -> acc shl 8 or byte } and (0xFFFFFFFF shl subnetBitCount)).toInt()
+                        (0..(1 shl subnetBitCount) - 1).map {
+                            InetAddress.getByAddress(ByteBuffer.allocate(4).putInt(subnetBaseAddress or it).array()) as Inet4Address
+                        }
+                    }
 
-        subnetAddresses.forEach {
-            executor.execute(object : Runnable {
-                override fun run() {
-                    val process = Runtime.getRuntime().exec("ping -c 1 " + it);
-                    val returnCode = process.waitFor()
+            val results = executor.invokeAll(subnetAddresses.map {
+                object : Callable<Boolean> {
+                    override fun call(): Boolean = Runtime.getRuntime().exec("ping -c 1 " + it.hostAddress).waitFor() == 0
                 }
-            })
+            }).map { it.get() }
+
+            val mappings = File("/proc/net/arp")
+                    .readLines()
+                    .drop(1) // header
+                    .map { it.splitToSequence(' ').filter { it.isNotEmpty() }.toList() }
+                    .map {
+                        object {
+                            val ipAddress = InetAddress.getByName(it[0])
+                            val macAddress = it[3].splitToSequence(':').map { Integer.parseInt(it, 16).toByte() }.toList().toByteArray()
+                        }
+                    }
+
+            mappings.forEach { this.listener.onMacAddressDiscovered(it.ipAddress, it.macAddress) }
         }
-
-
-        //Runtime.getRuntime().exec("ping -c 1 " + currentHost);
     }
 
     interface Listener {
-
+        fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray)
     }
 }
