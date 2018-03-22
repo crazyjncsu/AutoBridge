@@ -12,20 +12,20 @@ import java.util.*
 
 @SuppressLint("NewApi")
 class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ContactClosureBoardSourceRuntime(parameters, listener) {
-    private var context: Context? = null;
-    private var scanner: BluetoothLeScanner? = null;
-    private var gatt: BluetoothGatt? = null;
-    private var characteristic: BluetoothGattCharacteristic? = null;
+    private var context: Context? = null
+    private var scanner: BluetoothLeScanner? = null
+    private var gatt: BluetoothGatt? = null
+    private var characteristic: BluetoothGattCharacteristic? = null
     private val getContactStateRequestList = mutableListOf<GetContactStateRequest>()
     private val setContactStateRequestList = mutableListOf<SetContactStateRequest>()
 
-    data class GetContactStateRequest(val contactID: String, val callback: (openOrClosed: Boolean) -> Unit);
-    data class SetContactStateRequest(val contactID: String, val openOrClosed: Boolean, val callback: () -> Unit);
+    data class GetContactStateRequest(val contactID: String, val callback: (openOrClosed: Boolean) -> Unit)
+    data class SetContactStateRequest(val contactID: String, val openOrClosed: Boolean, val callback: () -> Unit)
 
     // these were first here because of unreliability in issuing the read request when other read requests were finishing,
     // but this became extra useful when we realize that it takes a while and there can be issues with connecting, reconnecting, etc
     private val timer = Timer()
-    private var timerTask: TimerTask? = null;
+    private var timerTask: TimerTask? = null
 
     private val callback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
@@ -42,7 +42,7 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
                             ?.services
                             ?.flatMap { it.characteristics!! }
                             ?.filter { (it.properties and (BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE)) == (BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE) }
-                            ?.firstOrNull();
+                            ?.firstOrNull()
 
                     this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic?.let { gatt?.readCharacteristic(it) }
                 }
@@ -51,22 +51,22 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
                     Log.i(TAG, "Contact state read complete")
 
                     synchronized(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList) {
-                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.timerTask?.cancel();
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.timerTask?.cancel()
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.forEach {
-                            val contactIndex = it.contactID[1].toString().toInt() - 1;
+                            val contactIndex = it.contactID[1].toString().toInt() - 1
                             asyncTryLog { it.callback(characteristic!!.value[contactIndex].toInt() == 0) }
                         }
 
-                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.clear();
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.clear()
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.forEach {
-                            val contactIndex = it.contactID[1].toString().toInt() - 1;
+                            val contactIndex = it.contactID[1].toString().toInt() - 1
                             characteristic!!.value[contactIndex] = if (it.openOrClosed) 0 else 1
                             asyncTryLog { it.callback() }
                         }
 
-                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.clear();
+                        this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.clear()
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt?.writeCharacteristic(characteristic)
                     }

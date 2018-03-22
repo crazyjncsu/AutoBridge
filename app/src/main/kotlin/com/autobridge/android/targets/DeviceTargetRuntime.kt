@@ -11,7 +11,7 @@ abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: 
     abstract fun startSyncDeviceState(sourceID: String, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
 
     interface Listener {
-        fun onRejuvenated(targetRuntime: DeviceTargetRuntime);
+        fun onRejuvenated(targetRuntime: DeviceTargetRuntime)
         fun onSyncError(targetRuntime: DeviceTargetRuntime, mayNeedDiscovery: Boolean)
         fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String)
         fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String)

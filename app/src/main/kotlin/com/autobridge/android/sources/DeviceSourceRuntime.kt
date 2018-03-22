@@ -38,7 +38,7 @@ abstract class ConfigurationDeviceSourceRuntime(parameters: RuntimeParameters, l
                         DeviceRuntimeParameters(
                                 it.getString("id"),
                                 it.getJSONObject("configuration"),
-                                JSONObject(),
+                                this.getOrCreateState(it.getString("id")),
                                 it.getString("name")
                         ),
                         this

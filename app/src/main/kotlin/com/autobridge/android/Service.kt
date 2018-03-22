@@ -3,330 +3,96 @@ package com.autobridge.android
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
+import android.net.wifi.WifiManager.MulticastLock
 import android.os.IBinder
 import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
-import java.util.*
-import android.net.wifi.WifiManager.MulticastLock
-import android.net.wifi.WifiManager
-import com.autobridge.android.sources.*
-import com.autobridge.android.targets.DeviceTargetRuntime
-import com.autobridge.android.targets.SmartThingsTargetRuntime
-import org.json.JSONArray
 import java.io.File
 import java.net.InetAddress
+import java.util.*
 
 
-class Service : PersistentService(), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener, NetworkDiscoverer.Listener {
-    private val timer = Timer()
-
+class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.Listener {
     private var multicastLock: MulticastLock? = null
+
+    private lateinit var bridgeRuntime: BridgeRuntime;
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
-                this@Service.runtimes.map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it.parameters.id)) }
+                this@Service.bridgeRuntime.getRuntimeIDs().map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it)) }
     })
 
     private val networkDiscoverer = NetworkDiscoverer(this)
-    private var lastNetworkDiscoveryTickCount = 0L;
+
+    private var lastNetworkDiscoveryTickCount = 0L
 
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
-            this@Service.targetRuntimes
-                    .filter { it.parameters.id == requestObject.optString("targetID") }
-                    .forEach { it.processMessage(requestObject.getJSONObject("message")) }
-
-            this@Service.sourceRuntimes
-                    .filter { it.parameters.id == requestObject.optString("sourceID") }
-                    .forEach { it.processMessage(requestObject.getJSONObject("message")) }
+            this@Service.bridgeRuntime.processMessage(
+                    requestObject.optString("sourceID") ?: requestObject.optString("targetID"),
+                    requestObject.getJSONObject("message")
+            )
 
             return JSONObject()
         }
     }
 
-    private val sourceRuntimes = arrayOf(
-            BluetoothLowEnergyContactClosureBoardSourceRuntime(
-                    RuntimeParameters(
-                            "175506b4-2e19-4d00-8942-4c02c9dc9e72",
-                            JSONObject(mapOf(
-                                    "bluetoothAddress" to "30:AE:A4:44:FC:C2",
-                                    "devices" to arrayOf(
-                                            JSONObject(mapOf(
-                                                    "id" to "9bee98f9-0c6d-49d8-b212-d6fdefbe0388",
-                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
-                                                    "name" to "Bluetooth Light 4",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "contactID" to "R4"
-                                                    ))
-                                            )),
-                                            JSONObject(mapOf(
-                                                    "id" to "639b61b1-b0b6-4b73-8b82-0985c9883773",
-                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
-                                                    "name" to "Bluetooth Light 3",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "contactID" to "R3"
-                                                    ))
-                                            )),
-                                            JSONObject(mapOf(
-                                                    "id" to "76a4f870-c26d-4ad0-b246-aa5fcaa20989",
-                                                    "type" to DeviceType.DOOR_OPENER.ocfDeviceType,
-                                                    "name" to "Bluetooth Door 1 and 2",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "openContactID" to "R1",
-                                                            "closeContactID" to "R2",
-                                                            "openDurationSeconds" to 4,
-                                                            "closeDurationSeconds" to 4
-                                                    ))
-                                            ))
-                                    ))),
-                            JSONObject()
-                    ),
-                    this
-            ),
-            UsbHidContactClosureBoardSourceRuntime(
-                    RuntimeParameters(
-                            "7b7b88c4-740e-4341-885f-77a4a2bf1342",
-                            JSONObject(mapOf(
-                                    "usbProductID" to 1503,
-                                    "usbVendorID" to 5824,
-                                    "devices" to arrayOf(
-                                            JSONObject(mapOf(
-                                                    "id" to "7110d9e3-7161-4aec-a080-9a989d91d107",
-                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
-                                                    "name" to "Relay Light 4",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "contactID" to "R4"
-                                                    ))
-                                            )),
-                                            JSONObject(mapOf(
-                                                    "id" to "03f4559b-5436-4440-8506-6bcaa486cf48",
-                                                    "type" to DeviceType.LIGHT.ocfDeviceType,
-                                                    "name" to "Relay Light 3",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "contactID" to "R3"
-                                                    ))
-                                            )),
-                                            JSONObject(mapOf(
-                                                    "id" to "ec68af29-726a-41b0-bd87-c90e9d507301",
-                                                    "type" to DeviceType.DOOR_OPENER.ocfDeviceType,
-                                                    "name" to "Relay Door 1 and 2",
-                                                    "configuration" to JSONObject(mapOf(
-                                                            "openContactID" to "R1",
-                                                            "closeContactID" to "R2",
-                                                            "openDurationSeconds" to 4,
-                                                            "closeDurationSeconds" to 4
-                                                    ))
-                                            ))
-                                    ))),
-                            JSONObject()
-                    ),
-                    this
-            ),
-            MyQSourceRuntime(
-                    RuntimeParameters(
-                            "169b0eae-b913-4685-a9ec-b780c58944f9",
-                            JSONObject(mapOf("username" to "jordanview@outlook.com", "password" to "Ncsu1ncsu")),
-                            JSONObject()
-                    ),
-                    this
-            ),
-            OnboardSourceRuntime(
-                    RuntimeParameters(
-                            "348e978d-287d-43bc-9862-44a1418b33ae",
-                            JSONObject(mapOf("devices" to arrayOf(
-                                    JSONObject(mapOf(
-                                            "id" to "speechSynthesizer",
-                                            "name" to "Android Speech Synthesizer",
-                                            "configuration" to JSONObject()
-                                    )),
-                                    JSONObject(mapOf(
-                                            "id" to "flashlight",
-                                            "name" to "Android Light",
-                                            "configuration" to JSONObject()
-                                    )),
-                                    JSONObject(mapOf(
-                                            "id" to "illuminanceSensor",
-                                            "name" to "Android Light Sensor",
-                                            "configuration" to JSONObject(mapOf(
-                                                    "reportIntervalMillisecondCount" to 60_000
-                                                    //"reportPercentageChange" to 0.5 // flashes between 0 and 1
-                                            ))
-                                    )),
-                                    JSONObject(mapOf(
-                                            "id" to "soundPressureLevelSensor",
-                                            "name" to "Android SPL Meter",
-                                            "configuration" to JSONObject(mapOf(
-                                                    "reportIntervalMillisecondCount" to 60_000,
-                                                    "reportValueChange" to 60.0
-                                            ))
-                                    )),
-                                    JSONObject(mapOf(
-                                            "id" to "soundSensor",
-                                            "name" to "Android Sound Sensor",
-                                            "configuration" to JSONObject(mapOf(
-                                                    "reportValueChange" to 1,
-                                                    "threshold" to 80
-                                            ))
-                                    ))
-                            ))),
-                            JSONObject()
-                    ),
-                    this
-            )
-    )
+    private fun getJSONFromFile(fileName: String) =
+            File(this.filesDir, fileName).let { if (it.exists()) JSONObject(it.readText()) else JSONObject() }
 
-    private val targetRuntimes = arrayOf(
-            SmartThingsTargetRuntime(
-                    RuntimeParameters(
-                            "d2accd0f-eb6a-4393-bfe8-e380e8d857f9",
-                            JSONObject(),
-                            JSONObject(mapOf("authority" to "192.168.1.65:39500"))
-                    ),
-                    this
-            )
-    )
-
-    private val runtimes = this.sourceRuntimes.asIterable<RuntimeBase>().plus(this.targetRuntimes).toList()
-
-    private val sourceToTargetsMap = mapOf(
-            this.sourceRuntimes[0] to arrayOf(this.targetRuntimes[0]),
-            this.sourceRuntimes[1] to arrayOf(this.targetRuntimes[0]),
-            this.sourceRuntimes[2] to arrayOf(this.targetRuntimes[0]),
-            this.sourceRuntimes[3] to arrayOf(this.targetRuntimes[0])
-    )
-
-    private val targetToSourcesMap = mapOf(
-            this.targetRuntimes[0] to this.sourceRuntimes
-    )
-
-    private fun getConfiguration() = JSONObject(mapOf(
-            "sources" to JSONArray(this.sourceRuntimes.map {
-                JSONObject(mapOf(
-                        "sourceID" to it.parameters.id,
-                        "type" to it.javaClass.name,
-                        "configuration" to it.parameters.configuration
-                ))
-            }),
-            "targets" to JSONArray(this.targetRuntimes.map {
-                JSONObject(mapOf(
-                        "targetID" to it.parameters.id,
-                        "type" to it.javaClass.name,
-                        "configuration" to it.parameters.configuration
-                ))
-            }),
-            "bridges" to JSONArray(this.sourceToTargetsMap.entries
-                    .flatMap { entry ->
-                        entry.value.map {
-                            JSONObject(mapOf(
-                                    "sourceID" to entry.key.parameters.id,
-                                    "targetID" to it.parameters.id
-                            ))
-                        }
-                    }
-            )
-    ))
-
-    private fun writeConfiguration() =
-            File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.getConfiguration().toString(4))
-
-    @SuppressLint("NewApi")
     override fun onCreate() {
         super.onCreate()
-
-        this.writeConfiguration()
 
         this.multicastLock = this.getSystemService(Context.WIFI_SERVICE).to<WifiManager>().createMulticastLock("default")
         this.multicastLock?.acquire()
 
         this.ssdpServer.start()
-        this.webServer.start()
-        this.runtimes.forEach { it.startOrStop(true, this.applicationContext) }
-        this.timer.schedule(object : TimerTask() {
-            override fun run() {
-                this@Service.sourceRuntimes
-                        .forEach { it.startDiscoverDevices(true) }
 
-                this@Service.targetRuntimes
-                        .forEach { targetRuntime ->
-                            targetRuntime
-                                    .startSyncSources(this@Service.targetToSourcesMap[targetRuntime]!!.map { it.parameters.id })
-                        }
-            }
-        }, 0, 3_600_000)
+        this.webServer.start()
+
+        this.bridgeRuntime = BridgeRuntime(
+                RuntimeParameters(
+                        "",
+                        this.getJSONFromFile(CONFIGURATION_FILE_NAME),
+                        this.getJSONFromFile(STATE_FILE_NAME)
+                ),
+                this
+        )
+
+        this.bridgeRuntime.startOrStop(true, this.baseContext)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+
         this.ssdpServer.stop()
+
         this.webServer.stop()
-        this.runtimes.forEach { it.startOrStop(false, this.baseContext) }
-        this.timer.cancel()
+
+        this.bridgeRuntime.startOrStop(false, this.baseContext)
 
         this.multicastLock?.release()
+
+        // HMMM
+        File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.bridgeRuntime.parameters.configuration.toString(4))
+        File(this.filesDir, STATE_FILE_NAME).writeText(this.bridgeRuntime.parameters.state.toString(4))
+    }
+
+    override fun onNetworkDiscoveryNeeded() {
+        synchronized(this.networkDiscoverer) {
+            val ticksUntilDiscovery = this.lastNetworkDiscoveryTickCount - System.currentTimeMillis() + 300_000
+
+            if (ticksUntilDiscovery <= 0) {
+                this.networkDiscoverer.startDiscovery()
+                this.lastNetworkDiscoveryTickCount = System.currentTimeMillis()
+            }
+        }
     }
 
     override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) =
-            this.runtimes.forEach { it.processMacAddressDiscovered(ipAddress, macAddress) }
-
-    override fun onSyncError(targetRuntime: DeviceTargetRuntime, mayNeedDiscovery: Boolean) {
-        Log.v(TAG, "Received sync error for target runtime $targetRuntime")
-
-        if (mayNeedDiscovery)
-            synchronized(this.networkDiscoverer) {
-                val ticksUntilDiscovery = this.lastNetworkDiscoveryTickCount - System.currentTimeMillis() + 300_000;
-
-                if (ticksUntilDiscovery <= 0) {
-                    this.networkDiscoverer.startDiscovery()
-                    this.lastNetworkDiscoveryTickCount = System.currentTimeMillis()
-                }
-            }
-    }
-
-    override fun onRejuvenated(targetRuntime: DeviceTargetRuntime) {
-        Log.v(TAG, "Rejuvenated target runtime $targetRuntime; starting to discover devices for all its sources...")
-
-        this.targetToSourcesMap[targetRuntime]!!
-                .forEach { it.startDiscoverDevices(true) }
-    }
-
-    override fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String) {
-        Log.v(TAG, "Received devices sync request; starting to discover devices state for source '$sourceID'...")
-
-        this.targetToSourcesMap[targetRuntime]!!
-                .filter { it.parameters.id == sourceID }
-                .forEach { it.startDiscoverDevices(true) }
-    }
-
-    override fun onDeviceRefreshRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String) {
-        Log.v(TAG, "Received device refresh request; starting to discover device state for device '$deviceID'...")
-
-        this.targetToSourcesMap[targetRuntime]!!
-                .filter { it.parameters.id == sourceID }
-                .forEach { it.startDiscoverDeviceState(deviceID) }
-    }
-
-    override fun onDeviceStateChangeRequest(targetRuntime: DeviceTargetRuntime, sourceID: String, deviceID: String, propertyName: String, propertyValue: String) {
-        Log.v(TAG, "Received device state change request; starting to set device '$deviceID' property '$propertyName' to '$propertyValue'...")
-
-        this.targetToSourcesMap[targetRuntime]!!
-                .filter { it.parameters.id == sourceID }
-                .forEach { it.startSetDeviceState(deviceID, propertyName, propertyValue) }
-    }
-
-    override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String) {
-        Log.v(TAG, "Discovered device '$deviceID' property '$propertyName' is '$propertyValue'; syncing...")
-
-        this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.startSyncDeviceState(sourceRuntime.parameters.id, deviceID, deviceType, propertyName, propertyValue) }
-    }
-
-    override fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>) {
-        Log.v(TAG, "Discovered ${devices.count()} devices for runtime '$sourceRuntime'; syncing...")
-
-        this.sourceToTargetsMap[sourceRuntime]!!
-                .forEach { it.startSyncSourceDevices(sourceRuntime.parameters.id, devices) }
-    }
+            this.bridgeRuntime.processMacAddressDiscovered(ipAddress, macAddress)
 }
 
 @SuppressLint("Registered")

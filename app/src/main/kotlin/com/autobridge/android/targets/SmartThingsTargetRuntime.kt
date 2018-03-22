@@ -42,7 +42,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
     override fun processMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {
         if (macAddress[0].toUnsignedInt() == 0x24 && macAddress[1].toUnsignedInt() == 0xFD && macAddress[2].toUnsignedInt() == 0x5B) { // smartthings has own MAC prefix
             this.parameters.state.put("hubIPAddress", ipAddress.hostAddress)
-            this.listener.onRejuvenated(this);
+            this.listener.onRejuvenated(this)
         }
     }
 

@@ -91,7 +91,7 @@ fun <T> T.mutate(proc: (T) -> Unit): T {
 @Suppress("UNCHECKED_CAST")
 fun <T> Any.to() = this as T
 
-fun isAddressValid(address: InetAddress) = !address.isLoopbackAddress && !address.isLinkLocalAddress;
+fun isAddressValid(address: InetAddress) = !address.isLoopbackAddress && !address.isLinkLocalAddress
 
 fun getActiveNetworkInterface() = NetworkInterface.getNetworkInterfaces()
         .asSequence()

@@ -13,7 +13,7 @@ import android.util.Log
 import com.autobridge.android.*
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
-    protected override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
+    override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
             when (deviceID) {
                 "speechSynthesizer" -> SpeechSynthesizerRuntime(parameters, listener)
 
@@ -120,17 +120,6 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
                 this@FlashlightRuntime.listener.onStateDiscovered(this@FlashlightRuntime, propertyName, if (this@FlashlightRuntime.onOrOff) "true" else "false")
             }
         }
-//        if (propertyValue == "true" && this.camera == null) {
-//            this.camera = Camera.open()
-//            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_TORCH
-//            //this.camera!!.setPreviewTexture(this.surfaceTexture)
-//            this.camera!!.startPreview()
-//        } else if (propertyValue == "false" && this.camera != null) {
-//            this.camera!!.stopPreview()
-//            this.camera!!.parameters.flashMode = Camera.Parameters.FLASH_MODE_OFF
-//            this.camera!!.release()
-//            this.camera = null
-//        }
     }
 }
 
