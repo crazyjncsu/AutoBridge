@@ -1,6 +1,5 @@
 package com.autobridge.android
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.autobridge.android.sources.DeviceSourceRuntime
@@ -49,17 +48,18 @@ class BridgeRuntime(parameters: RuntimeParameters, val listener: Listener) : Run
     private val targetToSourcesMap = this.targetRuntimes
             .associate { target -> Pair(target, this.sourceRuntimes.filter { this.bridges.contains(Pair(it.parameters.id, target.parameters.id)) }.toList()) }
 
-    inline fun <reified TRuntime, reified TListener> createRuntimes(collectionAttributeName: String, idAttributeName: String) =
-            (this.parameters.configuration.optJSONArray(collectionAttributeName) ?: JSONArray())
+    inline fun <reified TRuntime, reified TListener> createRuntimes(collectionKey: String, idKey: String) =
+            (this.parameters.configuration.optJSONArray(collectionKey) ?: JSONArray())
                     .toJSONObjectSequence()
                     .map {
                         Class.forName(it.getString("type"))
                                 .getDeclaredConstructor(RuntimeParameters::class.java, TListener::class.java)
                                 .newInstance(RuntimeParameters(
-                                        it.getString(idAttributeName),
+                                        it.getString(idKey),
                                         it.getJSONObject("configuration"),
-                                        this.getOrCreateState(it.getString(idAttributeName))
-                                ), this).to<TRuntime>()
+                                        this.getOrCreateState(it.getString(idKey))
+                                ), this)
+                                .to<TRuntime>()
                     }
                     .toList()
 
