@@ -10,8 +10,8 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
                 else -> throw IllegalArgumentException()
             }
 
-    protected abstract fun getContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit)
-    protected abstract fun setContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit)
+    protected abstract fun tryGetContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit)
+    protected abstract fun trySetContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit)
 
     inner class DoorOpenerDeviceRuntime(parameters: DeviceRuntimeParameters) : DeviceRuntime(parameters, this@ContactClosureBoardSourceRuntime, DeviceType.DOOR_OPENER) {
         private val openStatePropertyName = this.deviceType.resourceTypes[0].propertyNames[0]
@@ -28,9 +28,9 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
 
             // TODO work on something to make sure two of these can't run at once
             if (propertyValue != openState)
-                this@ContactClosureBoardSourceRuntime.setContactStateAsync(contactID, false) {
+                this@ContactClosureBoardSourceRuntime.trySetContactStateAsync(contactID, false) {
                     Thread.sleep(this.parameters.configuration.getInt(if (isOpen(openState)) "closeDurationSeconds" else "openDurationSeconds") * 1000L)
-                    this@ContactClosureBoardSourceRuntime.setContactStateAsync(contactID, true) {
+                    this@ContactClosureBoardSourceRuntime.trySetContactStateAsync(contactID, true) {
                         val newOpenState = if (isOpen) "Closed" else "Open"
                         this.parameters.state.put(this.openStatePropertyName, newOpenState)
                         this.onOpenStateDiscovered(newOpenState)
@@ -48,12 +48,12 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
         private val contactID = this.parameters.configuration.getString("contactID")
 
         override fun startDiscoverState() =
-                this@ContactClosureBoardSourceRuntime.getContactStateAsync(contactID) {
+                this@ContactClosureBoardSourceRuntime.tryGetContactStateAsync(contactID) {
                     this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], if (it) "false" else "true")
                 }
 
         override fun startSetState(propertyName: String, propertyValue: String) =
-                this@ContactClosureBoardSourceRuntime.setContactStateAsync(contactID, propertyValue == "false") {
+                this@ContactClosureBoardSourceRuntime.trySetContactStateAsync(contactID, propertyValue == "false") {
                     this.listener.onStateDiscovered(this, propertyName, propertyValue)
                 }
     }

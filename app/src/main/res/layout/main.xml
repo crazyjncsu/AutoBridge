@@ -6,14 +6,34 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <Button
+        android:id="@+id/button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        tools:layout_editor_absoluteX="170dp"
+        tools:layout_editor_absoluteY="16dp" />
+
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/floatingActionButton2"
+        android:id="@+id/floatingActionButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:clickable="true"
         android:src="@android:drawable/ic_input_add" />
 
     <ListView
+        android:id="@+id/listView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        tools:layout_editor_absoluteX="60dp"
+        tools:layout_editor_absoluteY="16dp"></ListView>
+
+    <EditText
+        android:id="@+id/editText"
+        android:layout_width="358dp"
+        android:layout_height="404dp"
+        android:ems="10"
+        android:inputType="textMultiLine"
+        android:fontFamily="monospace"
+        tools:layout_editor_absoluteY="85dp" />
 </android.support.constraint.ConstraintLayout>

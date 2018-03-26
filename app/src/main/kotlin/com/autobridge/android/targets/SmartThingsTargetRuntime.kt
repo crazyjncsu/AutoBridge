@@ -47,7 +47,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
     }
 
     override fun startSyncSources(sourceIDs: List<String>) {
-        this.tryPerformSmartThingsRequestWithHandling(
+        this.startPerformSmartThingsRequestWithHandling(
                 JSONObject(mapOf(
                         "autoBridgeOperation" to "syncSources",
                         "targetID" to this@SmartThingsTargetRuntime.parameters.id,
@@ -57,7 +57,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
     }
 
     override fun startSyncSourceDevices(sourceID: String, devices: List<DeviceDefinition>) {
-        this.tryPerformSmartThingsRequestWithHandling(
+        this.startPerformSmartThingsRequestWithHandling(
                 JSONObject(mapOf(
                         "autoBridgeOperation" to "syncSourceDevices",
                         "targetID" to this@SmartThingsTargetRuntime.parameters.id,
@@ -79,7 +79,7 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
                 .map { standardToSmartThingsMap[Triple(it, propertyName, propertyValue)] }
                 .firstOrNull { it != null }
 
-        this.tryPerformSmartThingsRequestWithHandling(
+        this.startPerformSmartThingsRequestWithHandling(
                 JSONObject(mapOf(
                         "autoBridgeOperation" to "syncDeviceState",
                         "targetID" to this@SmartThingsTargetRuntime.parameters.id,
@@ -91,17 +91,19 @@ class SmartThingsTargetRuntime(parameters: RuntimeParameters, listener: Listener
         )
     }
 
-    private fun tryPerformSmartThingsRequestWithHandling(bodyObject: JSONObject) {
-        try {
-            performJsonHttpRequest(
-                    "POST",
-                    "http",
-                    this.parameters.state.optString("hubIPAddress") + ":39500",
-                    "/auto-bridge",
-                    bodyObject = bodyObject
-            )
-        } catch (ex: Exception) { // could we catch more specific exception for this?
-            this.listener.onSyncError(this, true)
+    private fun startPerformSmartThingsRequestWithHandling(bodyObject: JSONObject) {
+        async {
+            try {
+                performJsonHttpRequest(
+                        "POST",
+                        "http",
+                        this.parameters.state.optString("hubIPAddress") + ":39500",
+                        "/auto-bridge",
+                        bodyObject = bodyObject
+                )
+            } catch (ex: Exception) { // could we catch more specific exception for this?
+                this.listener.onSyncError(this, true)
+            }
         }
     }
 }

@@ -32,12 +32,10 @@ abstract class RuntimeBase(val parameters: RuntimeParameters) {
 
 class BridgeRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters), DeviceSourceRuntime.Listener, DeviceTargetRuntime.Listener {
     private val timer = Timer()
-
     private val sourceRuntimes = this.createRuntimes<DeviceSourceRuntime, DeviceSourceRuntime.Listener>("sources", "sourceID")
     private val targetRuntimes = this.createRuntimes<DeviceTargetRuntime, DeviceTargetRuntime.Listener>("targets", "targetID")
     private val runtimes = sourceRuntimes.plus(targetRuntimes).toList()
-
-    private val bridges = this.parameters.configuration.getJSONArray("bridges")
+    private val bridges = (this.parameters.configuration.optJSONArray("bridges") ?: JSONArray())
             .toJSONObjectSequence()
             .map { Pair(it.getString("sourceID"), it.getString("targetID")) }
             .toSet()
@@ -160,6 +158,12 @@ class BridgeRuntime(parameters: RuntimeParameters, val listener: Listener) : Run
         this.targetToSourcesMap[targetRuntime]!!
                 .filter { it.parameters.id == sourceID }
                 .forEach { it.startSetDeviceState(deviceID, propertyName, propertyValue) }
+    }
+
+    override fun onRejuvenated(sourceRuntime: DeviceSourceRuntime) {
+        Log.v(TAG, "Rejuvenated source runtime $sourceRuntime; starting to discover devices...")
+
+        sourceRuntime.startDiscoverDevices(true)
     }
 
     override fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String) {

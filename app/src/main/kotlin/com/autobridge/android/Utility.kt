@@ -1,5 +1,7 @@
 package com.autobridge.android
 
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbInterface
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -97,3 +99,6 @@ fun getActiveNetworkInterface() = NetworkInterface.getNetworkInterfaces()
         .asSequence()
         .filter { it.inetAddresses.asSequence().filter { isAddressValid(it) }.any() }
         .first()
+
+fun UsbInterface.getEndpoints() = (0 until this.endpointCount).map { this.getEndpoint(it) }
+fun UsbDevice.getInterfaces() = (0 until this.interfaceCount).map { this.getInterface(it) }

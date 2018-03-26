@@ -11,6 +11,7 @@ abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: 
     abstract fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String)
 
     interface Listener {
+        fun onRejuvenated(sourceRuntime: DeviceSourceRuntime)
         fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>)
         fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
     }

@@ -2,35 +2,44 @@ package com.autobridge.android.sources
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.ImageFormat
+import android.graphics.YuvImage
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
+import android.hardware.camera2.*
+import android.media.ImageReader
+import android.media.ImageWriter
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.util.Base64
 import android.util.Log
 import com.autobridge.android.*
+import java.io.Closeable
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
     override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
             when (deviceID) {
                 "speechSynthesizer" -> SpeechSynthesizerRuntime(parameters, listener)
 
-                "flashlight" -> FlashlightRuntime(parameters, listener)
+                "flashlight" -> FlashlightDeviceRuntime(parameters, listener)
 
                 "soundPressureLevelSensor" -> object : SoundAmplitudeSensorRuntime<Double>(parameters, listener, DeviceType.SOUND_PRESSURE_LEVEL_SENSOR, 0.0) {
+                    override val defaultReportValueChange: Double get() = 40.0
                     override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue)
                 }
 
                 "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
-                    private val threshold = this.parameters.configuration.getDouble("threshold")
+                    private val threshold = this.parameters.configuration.optDouble("threshold", 60.0)
+                    override val defaultStickyValue: Double get() = 1.0
                     override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
                 }
 
                 "atmosphericPressureSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ATMOSPHERIC_PRESSURE_SENSOR, Sensor.TYPE_PRESSURE)
 
-                "relativeHumiditySensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.HUMIDITY_SENSOR, 12) // Sensor.TYPE_RELATIVE_HUMIDITY won't compile
+                "relativeHumiditySensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.HUMIDITY_SENSOR, Sensor.TYPE_RELATIVE_HUMIDITY)
 
                 "illuminanceSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.LIGHT_SENSOR, Sensor.TYPE_LIGHT)
 
@@ -42,15 +51,6 @@ class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : 
 
                 else -> throw IllegalArgumentException()
             }
-}
-
-class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : DeviceRuntime(parameters, listener, DeviceType.CAMERA) {
-    override fun startDiscoverState() {}
-
-    override fun startSetState(propertyName: String, propertyValue: String) {
-        if (propertyValue == "")
-            Log.v("Camera", "Take Picture")
-    }
 }
 
 class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : DeviceRuntime(parameters, listener, DeviceType.SPEECH_SYNTHESIZER), TextToSpeech.OnInitListener {
@@ -83,12 +83,9 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
     }
 }
 
-@Suppress("DEPRECATION")
-class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : DeviceRuntime(parameters, listener, DeviceType.LIGHT) {
-    //private val surfaceTexture = SurfaceTexture(1)
-    //private var camera: Camera? = null
-    private lateinit var cameraManager: CameraManager
-    private var onOrOff = false
+abstract class CameraManagerDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType) : DeviceRuntime(parameters, listener, deviceType) {
+    protected lateinit var cameraManager: CameraManager
+        private set
 
     @SuppressLint("NewApi")
     override fun startOrStop(startOrStop: Boolean, context: Context) {
@@ -97,13 +94,95 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
                 this.cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         }
     }
+}
+
+class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : CameraManagerDeviceRuntime(parameters, listener, DeviceType.CAMERA) {
+    override fun startDiscoverState() {}
+
+    @SuppressLint("NewApi", "MissingPermission")
+    override fun startSetState(propertyName: String, propertyValue: String) {
+        asyncTryLog {
+            if (propertyValue == "") {
+                var i = 0;
+                val handler = Handler(Looper.getMainLooper())
+
+                val cameraID = this.cameraManager.cameraIdList
+                        .map { Pair(it, this.cameraManager.getCameraCharacteristics(it)) }
+                        .filter { (it.second.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) == this.frontOrBack }
+                        .map { it.first }
+                        .firstOrNull()
+
+                val imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 30)
+                var objectsToClose = mutableListOf<AutoCloseable>(imageReader)
+
+                fun cleanup() {
+                    synchronized(objectsToClose) {
+                        objectsToClose.forEach { it.close() }
+                    }
+                }
+
+                imageReader.setOnImageAvailableListener(ImageReader.OnImageAvailableListener {
+                    it.acquireLatestImage().use {
+                        if (i++ > 30) {
+                            val bytes = ByteArray(it.planes[0].buffer.remaining())
+                            it.planes[0].buffer.get(bytes)
+                            this.listener.onStateDiscovered(this, propertyName, Base64.encodeToString(bytes, Base64.DEFAULT))
+                            cleanup()
+                        }
+                    }
+                }, handler)
+
+                cameraID.let {
+                    this.cameraManager.openCamera(it, object : CameraDevice.StateCallback() {
+                        override fun onOpened(camera: CameraDevice?) {
+                            synchronized(objectsToClose) {
+                                objectsToClose.add(camera!!)
+                            }
+
+                            camera!!.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
+                                override fun onConfigureFailed(session: CameraCaptureSession?) {
+                                    Log.i(TAG, "onConfigureFailed")
+                                    cleanup()
+                                }
+
+                                override fun onConfigured(session: CameraCaptureSession?) {
+                                    synchronized(objectsToClose) {
+                                        objectsToClose.add(session!!)
+                                    }
+
+                                    val builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON) // auto-exposure
+                                    builder.addTarget(imageReader.surface)
+                                    session!!.setRepeatingRequest(builder.build(), null, handler)
+                                }
+                            }, handler)
+                        }
+
+                        override fun onDisconnected(camera: CameraDevice?) {
+                            Log.i(TAG, "onDisconnected")
+                            cleanup()
+                        }
+
+                        override fun onError(camera: CameraDevice?, error: Int) {
+                            Log.i(TAG, "onError")
+                            cleanup()
+                        }
+                    }, handler)
+                }
+            }
+        }
+    }
+}
+
+class FlashlightDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : CameraManagerDeviceRuntime(parameters, listener, DeviceType.LIGHT) {
+    private var onOrOff = false
 
     override fun startDiscoverState() {
         asyncTryLog {
-            this@FlashlightRuntime.listener.onStateDiscovered(
-                    this@FlashlightRuntime,
-                    this@FlashlightRuntime.deviceType.resourceTypes[0].propertyNames[0],
-                    if (this@FlashlightRuntime.onOrOff) "true" else "false")
+            this@FlashlightDeviceRuntime.listener.onStateDiscovered(
+                    this@FlashlightDeviceRuntime,
+                    this@FlashlightDeviceRuntime.deviceType.resourceTypes[0].propertyNames[0],
+                    if (this@FlashlightDeviceRuntime.onOrOff) "true" else "false")
         }
     }
 
@@ -111,22 +190,31 @@ class FlashlightRuntime(parameters: DeviceRuntimeParameters, listener: Listener)
     override fun startSetState(propertyName: String, propertyValue: String) {
         asyncTryLog {
             ifApiLevel(23) {
-                this@FlashlightRuntime.onOrOff = propertyValue == "true"
+                this@FlashlightDeviceRuntime.onOrOff = propertyValue == "true"
 
-                this@FlashlightRuntime.cameraManager.cameraIdList
-                        .filter { this@FlashlightRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
-                        .forEach { this@FlashlightRuntime.cameraManager.setTorchMode(it, this@FlashlightRuntime.onOrOff) }
+                this@FlashlightDeviceRuntime.cameraManager.cameraIdList
+                        .filter { this@FlashlightDeviceRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
+                        .forEach { this@FlashlightDeviceRuntime.cameraManager.setTorchMode(it, this@FlashlightDeviceRuntime.onOrOff) }
 
-                this@FlashlightRuntime.listener.onStateDiscovered(this@FlashlightRuntime, propertyName, if (this@FlashlightRuntime.onOrOff) "true" else "false")
+                this@FlashlightDeviceRuntime.listener.onStateDiscovered(this@FlashlightDeviceRuntime, propertyName, if (this@FlashlightDeviceRuntime.onOrOff) "true" else "false")
             }
         }
     }
 }
 
 abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType, var value: ValueType) : DeviceRuntime(parameters, listener, deviceType) {
-    private val reportIntervalMillisecondCount = parameters.configuration.optLong("reportIntervalMillisecondCount")
-    private val reportPercentageChange = parameters.configuration.optDouble("reportPercentageChange")
-    private val reportValueChange = parameters.configuration.optDouble("reportValueChange")
+    private val reportIntervalMillisecondCount = parameters.configuration.optLong("reportIntervalMillisecondCount", this.defaultReportIntervalMillisecondCount)
+    private val reportPercentageChange = parameters.configuration.optDouble("reportPercentageChange", this.defaultReportPercentageChange)
+    private val reportValueChange = parameters.configuration.optDouble("reportValueChange", this.defaultReportValueChange)
+    private val stickyValue = parameters.configuration.optDouble("stickyValue", this.defaultStickyValue)
+    private val stickyMillisecondCount = parameters.configuration.optLong("stickyMillisecondCount", this.defaultStickyMillisecondCount)
+
+    open val defaultReportIntervalMillisecondCount get() = 60_000L
+    open val defaultReportPercentageChange get() = 0.0
+    open val defaultReportValueChange get() = 0.0
+    open val defaultStickyValue get() = Double.MAX_VALUE
+    open val defaultStickyMillisecondCount get() = 60_000L
+
     private var lastReportedDoubleValue = 0.0
     private var lastReportedTickCount = 0L
 
@@ -134,16 +222,36 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
         val currentTickCount = System.currentTimeMillis()
         var sampledDoubleValue = this.convertToDouble(sampledValue)
 
-        if (this.lastReportedTickCount == 0L
-                || (this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount >= this.reportIntervalMillisecondCount)
-                || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) >= this.reportPercentageChange)
-                || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) >= this.reportValueChange)) {
-            this.lastReportedDoubleValue = sampledDoubleValue
-            this.lastReportedTickCount = currentTickCount
-            this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], sampledValue.toString())
+        fun getReportValueAction(): Int {
+            if (this.lastReportedTickCount == 0L)
+                return 1;
+
+            if (this.lastReportedDoubleValue == this.stickyValue && currentTickCount - lastReportedTickCount <= this.stickyMillisecondCount)
+                return 2;
+
+            if ((this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount >= this.reportIntervalMillisecondCount)
+                    || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) >= this.reportPercentageChange)
+                    || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) >= this.reportValueChange))
+                return 1;
+
+            return 0;
         }
 
-        this.value = sampledValue
+        when (getReportValueAction()) {
+            0 -> {
+                this.value = sampledValue
+            }
+            1 -> {
+                this.lastReportedDoubleValue = sampledDoubleValue
+                this.lastReportedTickCount = currentTickCount
+                this.value = sampledValue
+                this.listener.onStateDiscovered(this, this.deviceType.resourceTypes[0].propertyNames[0], sampledValue.toString())
+            }
+            2 -> {
+                if (sampledValue == this.stickyValue)
+                    this.lastReportedTickCount = currentTickCount
+            }
+        }
     }
 
     private fun convertToDouble(value: ValueType): Double {

@@ -31,7 +31,7 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
             this@Service.bridgeRuntime.processMessage(
-                    requestObject.optString("sourceID") ?: requestObject.optString("targetID"),
+                    requestObject.optString("sourceID", requestObject.optString("targetID")),
                     requestObject.getJSONObject("message")
             )
 
@@ -39,7 +39,7 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         }
     }
 
-    private fun getJSONFromFile(fileName: String) =
+    private fun tryGetJsonObjectFromFile(fileName: String) =
             File(this.filesDir, fileName).let { if (it.exists()) JSONObject(it.readText()) else JSONObject() }
 
     override fun onCreate() {
@@ -55,8 +55,8 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         this.bridgeRuntime = BridgeRuntime(
                 RuntimeParameters(
                         "",
-                        this.getJSONFromFile(CONFIGURATION_FILE_NAME),
-                        this.getJSONFromFile(STATE_FILE_NAME)
+                        this.tryGetJsonObjectFromFile(CONFIGURATION_FILE_NAME),
+                        this.tryGetJsonObjectFromFile(STATE_FILE_NAME)
                 ),
                 this
         )
@@ -76,7 +76,7 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         this.multicastLock?.release()
 
         // HMMM
-        File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.bridgeRuntime.parameters.configuration.toString(4))
+        //File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.bridgeRuntime.parameters.configuration.toString(4))
         File(this.filesDir, STATE_FILE_NAME).writeText(this.bridgeRuntime.parameters.state.toString(4))
     }
 

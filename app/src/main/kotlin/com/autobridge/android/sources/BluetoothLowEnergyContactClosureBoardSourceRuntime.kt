@@ -78,10 +78,10 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
     // all of this stuff is kind of funny, because we can't read contacts but all at once
     // and it may be worth refactoring, except we really need to write the pins individually which
     // truly requires the read-first weird logic anyway
-    override fun getContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit) =
+    override fun tryGetContactStateAsync(contactID: String, callback: (openOrClosed: Boolean) -> Unit) =
             this.performGetOrSet { this.getContactStateRequestList.add(GetContactStateRequest(contactID, callback)) }
 
-    override fun setContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit) =
+    override fun trySetContactStateAsync(contactID: String, openOrClosed: Boolean, callback: () -> Unit) =
             this.performGetOrSet { this.setContactStateRequestList.add(SetContactStateRequest(contactID, openOrClosed, callback)) }
 
     private fun performGetOrSet(proc: () -> Unit) =
@@ -90,7 +90,6 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
                     this.timerTask = object : TimerTask() {
                         override fun run() {
                             if (this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt != null && this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic != null) {
-                                Log.i(TAG, "Reading contact state")
                                 this@BluetoothLowEnergyContactClosureBoardSourceRuntime.gatt?.readCharacteristic(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.characteristic)
                             }
                         }

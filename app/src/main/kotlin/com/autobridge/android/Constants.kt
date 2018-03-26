@@ -1,6 +1,7 @@
 package com.autobridge.android
 
 import android.support.v4.content.FileProvider
+import java.nio.charset.Charset
 import java.util.concurrent.Executors
 
 class ConfigurationFileProvider : FileProvider()
@@ -12,6 +13,10 @@ val THREAD_POOL = Executors.newCachedThreadPool()
 
 val CONFIGURATION_FILE_NAME = "configuration.json"
 val STATE_FILE_NAME = "state.json"
+
+val USB_TIMEOUT = 1_000
+
+var DEFAULT_CHARSET = Charset.forName("UTF-8")
 
 enum class DeviceType(val ocfDeviceType: String, val displayName: String, val resourceTypes: Array<ResourceType>) {
     GARAGE_DOOR_OPENER("com.autobridge.d.garageDoorOpener", "Garage Door Opener", arrayOf(ResourceType.DOOR)),
