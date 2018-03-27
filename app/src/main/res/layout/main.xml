@@ -7,33 +7,31 @@
     android:orientation="vertical">
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/exportButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Save"
-        tools:layout_editor_absoluteX="170dp"
-        tools:layout_editor_absoluteY="16dp" />
+        android:layout_marginStart="16dp"
+        android:text="export"
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/floatingActionButton"
+    <Button
+        android:id="@+id/saveButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:clickable="true"
-        android:src="@android:drawable/ic_input_add" />
-
-    <ListView
-        android:id="@+id/listView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        tools:layout_editor_absoluteX="60dp"
-        tools:layout_editor_absoluteY="16dp"></ListView>
+        android:layout_marginStart="16dp"
+        android:text="save"
+        app:layout_constraintStart_toEndOf="@+id/exportButton"
+        tools:layout_editor_absoluteY="0dp" />
 
     <EditText
         android:id="@+id/editText"
-        android:layout_width="358dp"
-        android:layout_height="404dp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:ems="10"
-        android:inputType="textMultiLine"
         android:fontFamily="monospace"
-        tools:layout_editor_absoluteY="85dp" />
+        android:inputType="textMultiLine"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/exportButton" />
 </android.support.constraint.ConstraintLayout>

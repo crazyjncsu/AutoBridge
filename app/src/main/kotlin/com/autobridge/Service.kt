@@ -16,12 +16,12 @@ import java.util.*
 
 class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.Listener {
     private var multicastLock: MulticastLock? = null
-
-    private lateinit var bridgeRuntime: BridgeRuntime;
+    private var bridgeRuntime: BridgeRuntime? = null;
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
-                this@Service.bridgeRuntime.getRuntimeIDs().map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it)) }
+                this@Service.bridgeRuntime?.getRuntimeIDs()?.map { SsdpServer.Listener.SearchResponse(st, UUID.fromString(it)) }
+                        ?: listOf()
     })
 
     private val networkDiscoverer = NetworkDiscoverer(this)
@@ -30,7 +30,7 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
 
     private val webServer = object : WebServer(1035) {
         override fun processJsonRequest(requestObject: JSONObject): JSONObject {
-            this@Service.bridgeRuntime.processMessage(
+            this@Service.bridgeRuntime?.processMessage(
                     requestObject.optString("sourceID", requestObject.optString("targetID")),
                     requestObject.getJSONObject("message")
             )
@@ -52,16 +52,18 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
 
         this.webServer.start()
 
-        this.bridgeRuntime = BridgeRuntime(
-                RuntimeParameters(
-                        "",
-                        this.tryGetJsonObjectFromFile(com.autobridge.CONFIGURATION_FILE_NAME),
-                        this.tryGetJsonObjectFromFile(com.autobridge.STATE_FILE_NAME)
-                ),
-                this
-        )
+        tryLog {
+            this.bridgeRuntime = BridgeRuntime(
+                    RuntimeParameters(
+                            "",
+                            this.tryGetJsonObjectFromFile(com.autobridge.CONFIGURATION_FILE_NAME),
+                            this.tryGetJsonObjectFromFile(com.autobridge.STATE_FILE_NAME)
+                    ),
+                    this
+            )
 
-        this.bridgeRuntime.startOrStop(true, this.baseContext)
+            this.bridgeRuntime?.startOrStop(true, this.baseContext)
+        }
     }
 
     override fun onDestroy() {
@@ -71,13 +73,14 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
 
         this.webServer.stop()
 
-        this.bridgeRuntime.startOrStop(false, this.baseContext)
+        this.bridgeRuntime?.startOrStop(false, this.baseContext)
 
         this.multicastLock?.release()
 
         // HMMM
         //File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(this.bridgeRuntime.parameters.configuration.toString(4))
-        File(this.filesDir, STATE_FILE_NAME).writeText(this.bridgeRuntime.parameters.state.toString(4))
+
+        this.bridgeRuntime?.let { File(this.filesDir, STATE_FILE_NAME).writeText(it.parameters.state.toString(4)) }
     }
 
     override fun onNetworkDiscoveryNeeded() {
@@ -91,8 +94,9 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         }
     }
 
-    override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) =
-            this.bridgeRuntime.processMacAddressDiscovered(ipAddress, macAddress)
+    override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {
+        this.bridgeRuntime?.processMacAddressDiscovered(ipAddress, macAddress)
+    }
 }
 
 @SuppressLint("Registered")

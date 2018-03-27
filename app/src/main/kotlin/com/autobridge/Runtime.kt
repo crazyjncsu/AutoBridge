@@ -97,14 +97,14 @@ class BridgeRuntime(parameters: RuntimeParameters, val listener: Listener) : Run
 
             this.timer.schedule(object : TimerTask() {
                 override fun run() {
-                    this@BridgeRuntime.sourceRuntimes
-                            .forEach { it.startDiscoverDevices(true) }
-
                     this@BridgeRuntime.targetRuntimes
                             .forEach { targetRuntime ->
                                 targetRuntime
                                         .startSyncSources(this@BridgeRuntime.targetToSourcesMap[targetRuntime]!!.map { it.parameters.id })
                             }
+
+                    this@BridgeRuntime.sourceRuntimes
+                            .forEach { it.startDiscoverDevices(true) }
                 }
             }, 0, 3_600_000)
         } else {
@@ -130,7 +130,9 @@ class BridgeRuntime(parameters: RuntimeParameters, val listener: Listener) : Run
     }
 
     override fun onRejuvenated(targetRuntime: DeviceTargetRuntime) {
-        Log.v(TAG, "Rejuvenated target runtime $targetRuntime; starting to discover devices for all its sources...")
+        Log.v(TAG, "Rejuvenated target runtime $targetRuntime; starting to sync sources and discover devices for all its sources...")
+
+        targetRuntime.startSyncSources(this.targetToSourcesMap[targetRuntime]!!.map { it.parameters.id })
 
         this.targetToSourcesMap[targetRuntime]!!
                 .forEach { it.startDiscoverDevices(true) }
