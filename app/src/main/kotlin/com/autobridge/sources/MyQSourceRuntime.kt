@@ -1,6 +1,7 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
-import com.autobridge.android.*
+import com.android.*
+import com.autobridge.*
 import org.json.JSONObject
 import java.io.IOException
 import java.lang.IllegalArgumentException

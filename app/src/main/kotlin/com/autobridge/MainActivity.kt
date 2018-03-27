@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.support.v4.content.FileProvider
 import android.util.Log
 import android.widget.TextView
+import com.android.R
 import kotlinx.android.synthetic.main.main.*
 import java.io.File
 
@@ -35,7 +36,7 @@ class MainActivity : Activity() {
                                     FileProvider.getUriForFile(
                                             this.applicationContext,
                                             this.javaClass.`package`.name,
-                                            File(this.filesDir, com.autobridge.android.STATE_FILE_NAME)
+                                            File(this.filesDir, STATE_FILE_NAME)
                                     )
                             ),
                     "Export"

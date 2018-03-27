@@ -1,6 +1,7 @@
-package com.autobridge.android.targets
+package com.autobridge.targets
 
-import com.autobridge.android.*
+import com.android.*
+import com.autobridge.*
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.InetAddress

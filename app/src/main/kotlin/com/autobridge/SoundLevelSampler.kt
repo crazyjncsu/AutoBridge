@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.media.MediaRecorder
 

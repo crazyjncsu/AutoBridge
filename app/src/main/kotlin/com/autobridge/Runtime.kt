@@ -1,9 +1,9 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.content.Context
 import android.util.Log
-import com.autobridge.android.sources.DeviceSourceRuntime
-import com.autobridge.android.targets.DeviceTargetRuntime
+import com.autobridge.sources.DeviceSourceRuntime
+import com.autobridge.targets.DeviceTargetRuntime
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.InetAddress

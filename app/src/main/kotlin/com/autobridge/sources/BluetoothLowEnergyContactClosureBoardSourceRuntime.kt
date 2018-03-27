@@ -1,13 +1,13 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
 import android.util.Log
-import com.autobridge.android.RuntimeParameters
-import com.autobridge.android.TAG
-import com.autobridge.android.asyncTryLog
+import com.autobridge.RuntimeParameters
+import com.autobridge.TAG
+import com.autobridge.asyncTryLog
 import java.util.*
 
 @SuppressLint("NewApi")

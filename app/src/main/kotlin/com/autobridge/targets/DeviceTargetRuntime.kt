@@ -1,9 +1,9 @@
-package com.autobridge.android.targets
+package com.autobridge.targets
 
-import com.autobridge.android.DeviceDefinition
-import com.autobridge.android.DeviceType
-import com.autobridge.android.RuntimeBase
-import com.autobridge.android.RuntimeParameters
+import com.autobridge.DeviceDefinition
+import com.autobridge.DeviceType
+import com.autobridge.RuntimeBase
+import com.autobridge.RuntimeParameters
 
 abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
     abstract fun startSyncSources(sourceIDs: List<String>)

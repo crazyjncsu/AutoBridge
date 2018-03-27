@@ -1,7 +1,8 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
 import android.content.Context
-import com.autobridge.android.*
+import com.android.*
+import com.autobridge.*
 import org.json.JSONObject
 import java.util.*
 

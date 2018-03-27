@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.util.Log
 import java.io.Closeable

@@ -1,23 +1,21 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.ImageFormat
-import android.graphics.YuvImage
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.camera2.*
 import android.media.ImageReader
-import android.media.ImageWriter
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Base64
 import android.util.Log
-import com.autobridge.android.*
-import java.io.Closeable
+import com.android.*
+import com.autobridge.*
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
     override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =

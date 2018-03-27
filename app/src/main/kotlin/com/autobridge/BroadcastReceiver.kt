@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.content.Context
 import android.content.Intent

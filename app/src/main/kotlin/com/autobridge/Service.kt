@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -55,8 +55,8 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         this.bridgeRuntime = BridgeRuntime(
                 RuntimeParameters(
                         "",
-                        this.tryGetJsonObjectFromFile(CONFIGURATION_FILE_NAME),
-                        this.tryGetJsonObjectFromFile(STATE_FILE_NAME)
+                        this.tryGetJsonObjectFromFile(com.autobridge.CONFIGURATION_FILE_NAME),
+                        this.tryGetJsonObjectFromFile(com.autobridge.STATE_FILE_NAME)
                 ),
                 this
         )

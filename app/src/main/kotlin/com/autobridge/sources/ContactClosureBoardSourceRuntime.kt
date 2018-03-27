@@ -1,6 +1,8 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
-import com.autobridge.android.*
+import com.android.*
+import com.autobridge.DeviceType
+import com.autobridge.RuntimeParameters
 
 abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
     override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =

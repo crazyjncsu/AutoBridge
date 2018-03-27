@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import android.support.v4.content.FileProvider
 import java.nio.charset.Charset

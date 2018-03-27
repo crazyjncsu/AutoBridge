@@ -1,4 +1,4 @@
-package com.autobridge.android.sources
+package com.autobridge.sources
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -6,7 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.*
-import com.autobridge.android.*
+import com.android.*
+import com.autobridge.*
 
 abstract class UsbContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ContactClosureBoardSourceRuntime(parameters, listener) {
     private var usbInfo: UsbInfo? = null

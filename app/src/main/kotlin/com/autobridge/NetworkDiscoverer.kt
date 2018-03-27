@@ -1,4 +1,4 @@
-package com.autobridge.android
+package com.autobridge
 
 import java.io.File
 import java.net.Inet4Address
