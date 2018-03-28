@@ -82,16 +82,14 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
     }
 }
 
+@RequiresApi(21)
 abstract class CameraManagerDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType) : DeviceRuntime(parameters, listener, deviceType) {
     protected lateinit var cameraManager: CameraManager
         private set
 
-    @SuppressLint("NewApi")
     override fun startOrStop(startOrStop: Boolean, context: Context) {
-        ifApiLevel(23) {
-            if (startOrStop)
-                this.cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        }
+        if (startOrStop)
+            this.cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     }
 }
 
@@ -185,18 +183,15 @@ class FlashlightDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Lis
         }
     }
 
-    @SuppressLint("NewApi")
     override fun startSetState(propertyName: String, propertyValue: String) {
         asyncTryLog {
-            ifApiLevel(23) {
-                this@FlashlightDeviceRuntime.onOrOff = propertyValue == "true"
+            this@FlashlightDeviceRuntime.onOrOff = propertyValue == "true"
 
-                this@FlashlightDeviceRuntime.cameraManager.cameraIdList
-                        .filter { this@FlashlightDeviceRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
-                        .forEach { this@FlashlightDeviceRuntime.cameraManager.setTorchMode(it, this@FlashlightDeviceRuntime.onOrOff) }
+            this@FlashlightDeviceRuntime.cameraManager.cameraIdList
+                    .filter { this@FlashlightDeviceRuntime.cameraManager.getCameraCharacteristics(it)[CameraCharacteristics.FLASH_INFO_AVAILABLE] }
+                    .forEach { this@FlashlightDeviceRuntime.cameraManager.setTorchMode(it, this@FlashlightDeviceRuntime.onOrOff) }
 
-                this@FlashlightDeviceRuntime.listener.onStateDiscovered(this@FlashlightDeviceRuntime, propertyName, if (this@FlashlightDeviceRuntime.onOrOff) "true" else "false")
-            }
+            this@FlashlightDeviceRuntime.listener.onStateDiscovered(this@FlashlightDeviceRuntime, propertyName, if (this@FlashlightDeviceRuntime.onOrOff) "true" else "false")
         }
     }
 }
