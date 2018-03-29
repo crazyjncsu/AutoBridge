@@ -30,7 +30,8 @@ class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : 
                 }
 
                 "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
-                    private val threshold = this.parameters.configuration.optDouble("threshold", 60.0)
+                    private val threshold = this.parameters.configuration.optDouble("threshold", this.defaultThreshold)
+                    open val defaultThreshold get() = 65.0
                     override val defaultStickyValue: Double get() = 1.0
                     override val defaultReportValueChange: Double get() = 1.0
                     override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
@@ -207,7 +208,7 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
     open val defaultReportPercentageChange get() = 0.0
     open val defaultReportValueChange get() = 0.0
     open val defaultStickyValue get() = Double.MAX_VALUE
-    open val defaultStickyMillisecondCount get() = 30_000L
+    open val defaultStickyMillisecondCount get() = 60_000L
 
     private var lastReportedDoubleValue = 0.0
     private var lastReportedTickCount = 0L
