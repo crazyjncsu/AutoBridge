@@ -1,6 +1,7 @@
 package com.autobridge.sources
 
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.Sensor
@@ -9,20 +10,21 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.camera2.*
 import android.media.ImageReader
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.support.annotation.RequiresApi
 import android.util.Base64
 import android.util.Log
 import com.android.*
 import com.autobridge.*
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
+    @TargetApi(Build.VERSION_CODES.M)
     override fun createDeviceRuntime(deviceID: String, deviceType: String?, parameters: DeviceRuntimeParameters, listener: DeviceRuntime.Listener): DeviceRuntime =
             when (deviceID) {
                 "speechSynthesizer" -> SpeechSynthesizerRuntime(parameters, listener)
-
-                "flashlight" -> FlashlightDeviceRuntime(parameters, listener)
 
                 "soundPressureLevelSensor" -> object : SoundAmplitudeSensorRuntime<Double>(parameters, listener, DeviceType.SOUND_PRESSURE_LEVEL_SENSOR, 0.0) {
                     override val defaultReportValueChange: Double get() = 40.0
@@ -44,6 +46,8 @@ class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : 
                 "illuminanceSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.LIGHT_SENSOR, Sensor.TYPE_LIGHT)
 
                 "accelerationSensor" -> HardwareSensorRuntime(parameters, listener, DeviceType.ACCELERATION_SENSOR, Sensor.TYPE_LINEAR_ACCELERATION)
+
+                "flashlight" -> FlashlightDeviceRuntime(parameters, listener)
 
                 "frontCamera" -> CameraRuntime(parameters, listener, true)
 
@@ -83,7 +87,7 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
     }
 }
 
-@RequiresApi(21)
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 abstract class CameraManagerDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener, deviceType: DeviceType) : DeviceRuntime(parameters, listener, deviceType) {
     protected lateinit var cameraManager: CameraManager
         private set
@@ -94,10 +98,11 @@ abstract class CameraManagerDeviceRuntime(parameters: DeviceRuntimeParameters, l
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : CameraManagerDeviceRuntime(parameters, listener, DeviceType.CAMERA) {
     override fun startDiscoverState() {}
 
-    @SuppressLint("NewApi", "MissingPermission")
+    @SuppressLint("MissingPermission")
     override fun startSetState(propertyName: String, propertyValue: String) {
         asyncTryLog {
             if (propertyValue == "") {
@@ -172,6 +177,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.M)
 class FlashlightDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener) : CameraManagerDeviceRuntime(parameters, listener, DeviceType.LIGHT) {
     private var onOrOff = false
 

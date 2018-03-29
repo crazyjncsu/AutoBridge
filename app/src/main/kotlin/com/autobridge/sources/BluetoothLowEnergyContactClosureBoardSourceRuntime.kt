@@ -4,13 +4,15 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
+import android.os.Build
+import android.support.annotation.RequiresApi
 import android.util.Log
 import com.autobridge.RuntimeParameters
 import com.autobridge.TAG
 import com.autobridge.asyncTryLog
 import java.util.*
 
-@SuppressLint("NewApi")
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ContactClosureBoardSourceRuntime(parameters, listener) {
     private var context: Context? = null
     private var scanner: BluetoothLeScanner? = null

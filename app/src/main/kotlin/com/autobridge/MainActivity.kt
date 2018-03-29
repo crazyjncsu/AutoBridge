@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.support.v4.content.FileProvider
 import android.util.Log
@@ -13,13 +14,11 @@ import kotlinx.android.synthetic.main.main.*
 import java.io.File
 
 class MainActivity : Activity() {
-    @SuppressLint("NewApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        ifApiLevel(23) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             this.requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.CAMERA), 1)
-        }
 
         this.applicationContext.startService(Intent(this.applicationContext, Service::class.java))
 
