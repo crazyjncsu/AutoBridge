@@ -18,11 +18,6 @@ import java.util.*
 class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.Listener {
     private var multicastLock: MulticastLock? = null
     private var bridgeRuntime: BridgeRuntime? = null;
-    private val listeners = mutableListOf<RuntimeBase.Listener>()
-
-    companion object {
-        var instance: Service? = null
-    }
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
@@ -51,8 +46,6 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
     override fun onCreate() {
         super.onCreate()
 
-        Service.instance = this
-
         this.multicastLock = this.getSystemService(Context.WIFI_SERVICE).to<WifiManager>().createMulticastLock("default")
         this.multicastLock?.acquire()
 
@@ -76,8 +69,6 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
 
     override fun onDestroy() {
         super.onDestroy()
-
-        Service.instance = null
 
         this.ssdpServer.stop()
 
@@ -104,21 +95,8 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         }
     }
 
-    fun addListener(listener: RuntimeBase.Listener) =
-            synchronized(this.listeners) {
-                this.listeners.add(listener)
-            }
-
-    fun removeListener(listener: RuntimeBase.Listener) =
-            synchronized(this.listeners) {
-                this.listeners.remove(listener)
-            }
-
-    override fun onLogEntryProduced(entry: LogEntry) {
-        synchronized(this.listeners) {
-            this.listeners.forEach { it.onLogEntryProduced(entry) }
-        }
-    }
+    override fun onLogEntryProduced(entry: LogEntry) =
+            this.application.to<Application>().addLogEntry(entry)
 
     override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {
         this.bridgeRuntime?.processMacAddressDiscovered(ipAddress, macAddress)
@@ -132,7 +110,9 @@ data class LogEntry(
     fun withContext(contextItem: Any) =
             LogEntry(this.context.plus(contextItem), message)
 
-    val contextString: String get() = this.context.reversed().joinToString(", ")
+    val contextString: String
+        get() =
+            this.context.reversed().joinToString(", ")
 }
 
 @SuppressLint("Registered")

@@ -19,6 +19,7 @@ import android.support.v4.widget.DrawerLayout
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
+import android.util.Log
 import android.view.*
 import android.widget.ArrayAdapter
 import android.widget.TextView
@@ -104,10 +105,9 @@ class ConfigurationFragment : Fragment() {
         inflater.inflate(R.menu.configuration, menu)
     }
 
-    @SuppressLint("NewApi")
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
         when (item!!.itemId) {
-            R.id.importConfiguration -> AlertDialog.Builder(this.context)
+            R.id.importConfiguration -> AlertDialog.Builder(this.activity)
                     .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send to\", then select AutoBridge.")
                     .create()
                     .show()
@@ -117,9 +117,9 @@ class ConfigurationFragment : Fragment() {
                             .putExtra(
                                     Intent.EXTRA_STREAM,
                                     FileProvider.getUriForFile(
-                                            this.context,
+                                            this.activity,
                                             this.javaClass.`package`.name,
-                                            File(this.context.filesDir, CONFIGURATION_FILE_NAME)
+                                            File(this.activity.filesDir, CONFIGURATION_FILE_NAME)
                                     )
                             ),
                     "Export"
@@ -130,14 +130,17 @@ class ConfigurationFragment : Fragment() {
     }
 }
 
-class LogFragment : Fragment(), RuntimeBase.Listener {
-    override fun onLogEntryProduced(entry: LogEntry) {
-        this.activity.runOnUiThread {
-            val recyclerView = this.view.to<RecyclerView>()
-            val viewAdapter = recyclerView.adapter.to<ObservableListViewAdapter<LogEntry>>()
-            viewAdapter.list.add(entry)
-            recyclerView.smoothScrollToPosition(viewAdapter.itemCount - 1)
-        }
+class LogFragment : Fragment() {
+    val logEntries get() = this.activity.application.to<Application>().logEntries
+
+    val listChangedCallback = object : ObservableList.OnListChangedCallback<ObservableList<LogEntry>>() {
+        override fun onItemRangeInserted(sender: ObservableList<LogEntry>, positionStart: Int, itemCount: Int) =
+                this@LogFragment.view.to<RecyclerView>().scrollToPosition(sender.size - 1)
+
+        override fun onChanged(sender: ObservableList<LogEntry>?) {}
+        override fun onItemRangeRemoved(sender: ObservableList<LogEntry>?, positionStart: Int, itemCount: Int) {}
+        override fun onItemRangeMoved(sender: ObservableList<LogEntry>?, fromPosition: Int, toPosition: Int, itemCount: Int) {}
+        override fun onItemRangeChanged(sender: ObservableList<LogEntry>?, positionStart: Int, itemCount: Int) {}
     }
 
     override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -149,7 +152,7 @@ class LogFragment : Fragment(), RuntimeBase.Listener {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.clear -> this.view.to<RecyclerView>().adapter.to<ObservableListViewAdapter<LogEntry>>().list.clear()
+            R.id.clear -> this.logEntries.clear()
         }
 
         return true
@@ -162,15 +165,15 @@ class LogFragment : Fragment(), RuntimeBase.Listener {
 
         this.view.to<RecyclerView>().apply {
             layoutManager = LinearLayoutManager(this@LogFragment.activity)
-            adapter = ObservableListViewAdapter(ObservableArrayList<LogEntry>(), R.layout.log_row, BR.data)
+            adapter = ObservableListViewAdapter(this@LogFragment.logEntries, R.layout.log_row, BR.data)
         }
 
-        Service.instance?.let { it.addListener(this) }
+        this.logEntries.addOnListChangedCallback(this.listChangedCallback)
     }
 
     override fun onStop() {
         super.onStop()
 
-        Service.instance?.let { it.removeListener(this) }
+        this.logEntries.removeOnListChangedCallback(this.listChangedCallback)
     }
 }
