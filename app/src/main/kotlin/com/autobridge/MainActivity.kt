@@ -108,7 +108,7 @@ class ConfigurationFragment : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
         when (item!!.itemId) {
             R.id.importConfiguration -> AlertDialog.Builder(this.activity)
-                    .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send to\", then select AutoBridge.")
+                    .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send a copy\", then select AutoBridge.")
                     .create()
                     .show()
             R.id.exportConfiguration -> this.startActivity(Intent.createChooser(
