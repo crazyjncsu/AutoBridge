@@ -153,7 +153,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
 
                             camera!!.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
                                 override fun onConfigureFailed(session: CameraCaptureSession?) {
-                                    Log.i(TAG, "onConfigureFailed")
+                                    this@CameraRuntime.onLogEntry("Camera configure failed")
                                     cleanup()
                                 }
 
@@ -163,6 +163,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                                     }
 
                                     val builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                                    builder.set(CaptureRequest.JPEG_ORIENTATION, this@CameraRuntime.cameraManager.getCameraCharacteristics(cameraID).get(CameraCharacteristics.SENSOR_ORIENTATION))
                                     builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON) // auto-exposure
                                     builder.addTarget(imageReader.surface)
                                     session!!.setRepeatingRequest(builder.build(), null, handler)
@@ -171,12 +172,12 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                         }
 
                         override fun onDisconnected(camera: CameraDevice?) {
-                            Log.i(TAG, "onDisconnected")
+                            this@CameraRuntime.onLogEntry("Camera disconnected")
                             cleanup()
                         }
 
                         override fun onError(camera: CameraDevice?, error: Int) {
-                            Log.i(TAG, "onError")
+                            this@CameraRuntime.onLogEntry("Camera error")
                             cleanup()
                         }
                     }, handler)
