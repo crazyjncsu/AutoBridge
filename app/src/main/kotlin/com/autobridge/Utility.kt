@@ -3,10 +3,12 @@ package com.autobridge
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbInterface
 import android.util.Log
+import android.view.Menu
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStreamReader
+import java.math.BigInteger
 import java.net.*
 import kotlin.coroutines.experimental.buildSequence
 
@@ -66,10 +68,6 @@ fun async(proc: () -> Unit) {
     })
 }
 
-fun asyncTryLog(proc: () -> Unit) {
-    async { tryLog(proc) }
-}
-
 fun tryLog(proc: () -> Unit) {
     try {
         proc()
@@ -83,7 +81,13 @@ fun ifApiLevel(api: Int, proc: () -> Unit) {
         proc()
 }
 
+fun asyncTryLog(proc: () -> Unit) {
+    async { tryLog(proc) }
+}
+
 fun Byte.toUnsignedInt() = toInt() and 0xFF
+
+fun ByteArray.toHexString() = BigInteger(this).toString(16)
 
 fun <T> T.mutate(proc: (T) -> Unit): T {
     proc(this)
@@ -102,3 +106,4 @@ fun getActiveNetworkInterface() = NetworkInterface.getNetworkInterfaces()
 
 fun UsbInterface.getEndpoints() = (0 until this.endpointCount).map { this.getEndpoint(it) }
 fun UsbDevice.getInterfaces() = (0 until this.interfaceCount).map { this.getInterface(it) }
+fun Menu.getItems() = (0 until this.size()).map { this.getItem(it) }

@@ -6,12 +6,12 @@ import com.autobridge.*
 import org.json.JSONObject
 import java.util.*
 
-abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
+abstract class DeviceSourceRuntime(parameters: RuntimeParameters, listener: Listener) : RuntimeBase<DeviceSourceRuntime.Listener>(parameters, listener) {
     abstract fun startDiscoverDevices(shouldIncludeState: Boolean)
     abstract fun startDiscoverDeviceState(deviceID: String)
     abstract fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String)
 
-    interface Listener {
+    interface Listener : RuntimeBase.Listener {
         fun onRejuvenated(sourceRuntime: DeviceSourceRuntime)
         fun onDevicesDiscovered(sourceRuntime: DeviceSourceRuntime, devices: List<DeviceDefinition>)
         fun onDeviceStateDiscovered(sourceRuntime: DeviceSourceRuntime, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
@@ -20,8 +20,8 @@ abstract class DeviceSourceRuntime(parameters: RuntimeParameters, val listener: 
 
 open class DeviceRuntimeParameters(id: String, configuration: JSONObject, state: JSONObject, val name: String) : RuntimeParameters(id, configuration, state)
 
-abstract class DeviceRuntime(parameters: DeviceRuntimeParameters, val listener: Listener, val deviceType: DeviceType) : RuntimeBase(parameters) {
-    interface Listener {
+abstract class DeviceRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val deviceType: DeviceType) : RuntimeBase<DeviceRuntime.Listener>(parameters, listener) {
+    interface Listener : RuntimeBase.Listener {
         fun onStateDiscovered(deviceRuntime: DeviceRuntime, propertyName: String, propertyValue: String)
     }
 
@@ -55,7 +55,7 @@ abstract class ConfigurationDeviceSourceRuntime(parameters: RuntimeParameters, l
             this.listener.onDeviceStateDiscovered(this, deviceRuntime.parameters.id, deviceRuntime.deviceType, propertyName, propertyValue)
 
     override fun startDiscoverDevices(shouldIncludeState: Boolean) {
-        asyncTryLog {
+        this.asyncTryLog {
             this@ConfigurationDeviceSourceRuntime.listener.onDevicesDiscovered(
                     this@ConfigurationDeviceSourceRuntime,
                     this@ConfigurationDeviceSourceRuntime.deviceRuntimes
@@ -87,13 +87,13 @@ abstract class PollingDeviceSourceRuntime(parameters: RuntimeParameters, listene
 
     private val task = object : TimerTask() {
         override fun run() {
-            tryLog { poll() }
+            this@PollingDeviceSourceRuntime.tryLog { poll() }
         }
     }
 
     override fun startOrStop(startOrStop: Boolean, context: Context) {
         if (startOrStop)
-            this.timer.schedule(this.task, 0, 600_000)
+            this.timer.schedule(this.task, 300_000, 300_000)
         else
             this.timer.cancel()
     }

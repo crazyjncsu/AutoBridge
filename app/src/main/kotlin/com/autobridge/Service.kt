@@ -10,6 +10,7 @@ import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.File
+import java.lang.ref.WeakReference
 import java.net.InetAddress
 import java.util.*
 
@@ -17,6 +18,11 @@ import java.util.*
 class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.Listener {
     private var multicastLock: MulticastLock? = null
     private var bridgeRuntime: BridgeRuntime? = null;
+    private val listeners = mutableListOf<RuntimeBase.Listener>()
+
+    companion object {
+        var instance: Service? = null
+    }
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =
@@ -45,6 +51,8 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
     override fun onCreate() {
         super.onCreate()
 
+        Service.instance = this
+
         this.multicastLock = this.getSystemService(Context.WIFI_SERVICE).to<WifiManager>().createMulticastLock("default")
         this.multicastLock?.acquire()
 
@@ -68,6 +76,8 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
 
     override fun onDestroy() {
         super.onDestroy()
+
+        Service.instance = null
 
         this.ssdpServer.stop()
 
@@ -94,9 +104,35 @@ class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.L
         }
     }
 
+    fun addListener(listener: RuntimeBase.Listener) =
+            synchronized(this.listeners) {
+                this.listeners.add(listener)
+            }
+
+    fun removeListener(listener: RuntimeBase.Listener) =
+            synchronized(this.listeners) {
+                this.listeners.remove(listener)
+            }
+
+    override fun onLogEntryProduced(entry: LogEntry) {
+        synchronized(this.listeners) {
+            this.listeners.forEach { it.onLogEntryProduced(entry) }
+        }
+    }
+
     override fun onMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {
         this.bridgeRuntime?.processMacAddressDiscovered(ipAddress, macAddress)
     }
+}
+
+data class LogEntry(
+        val context: Array<Any>,
+        val message: String
+) {
+    fun withContext(contextItem: Any) =
+            LogEntry(this.context.plus(contextItem), message)
+
+    val contextString: String get() = this.context.reversed().joinToString(", ")
 }
 
 @SuppressLint("Registered")
@@ -105,7 +141,7 @@ open class PersistentService : android.app.Service() {
         return null
     }
 
-    override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return android.app.Service.START_STICKY
     }
 }

@@ -5,12 +5,12 @@ import com.autobridge.DeviceType
 import com.autobridge.RuntimeBase
 import com.autobridge.RuntimeParameters
 
-abstract class DeviceTargetRuntime(parameters: RuntimeParameters, val listener: Listener) : RuntimeBase(parameters) {
+abstract class DeviceTargetRuntime(parameters: RuntimeParameters, listener: Listener) : RuntimeBase<DeviceTargetRuntime.Listener>(parameters, listener) {
     abstract fun startSyncSources(sourceIDs: List<String>)
     abstract fun startSyncSourceDevices(sourceID: String, devices: List<DeviceDefinition>)
     abstract fun startSyncDeviceState(sourceID: String, deviceID: String, deviceType: DeviceType, propertyName: String, propertyValue: String)
 
-    interface Listener {
+    interface Listener : RuntimeBase.Listener {
         fun onRejuvenated(targetRuntime: DeviceTargetRuntime)
         fun onSyncError(targetRuntime: DeviceTargetRuntime, mayNeedDiscovery: Boolean)
         fun onDevicesSyncRequest(targetRuntime: DeviceTargetRuntime, sourceID: String)

@@ -50,14 +50,12 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
                 }
 
                 override fun onCharacteristicRead(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
-                    Log.i(TAG, "Contact state read complete")
-
                     synchronized(this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList) {
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.timerTask?.cancel()
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.forEach {
                             val contactIndex = it.contactID[1].toString().toInt() - 1
-                            asyncTryLog { it.callback(characteristic!!.value[contactIndex].toInt() == 0) }
+                            this@BluetoothLowEnergyContactClosureBoardSourceRuntime.asyncTryLog { it.callback(characteristic!!.value[contactIndex].toInt() == 0) }
                         }
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.getContactStateRequestList.clear()
@@ -65,7 +63,7 @@ class BluetoothLowEnergyContactClosureBoardSourceRuntime(parameters: RuntimePara
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.forEach {
                             val contactIndex = it.contactID[1].toString().toInt() - 1
                             characteristic!!.value[contactIndex] = if (it.openOrClosed) 0 else 1
-                            asyncTryLog { it.callback() }
+                            this@BluetoothLowEnergyContactClosureBoardSourceRuntime.asyncTryLog { it.callback() }
                         }
 
                         this@BluetoothLowEnergyContactClosureBoardSourceRuntime.setContactStateRequestList.clear()

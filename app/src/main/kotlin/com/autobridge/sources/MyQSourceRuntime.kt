@@ -11,7 +11,7 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
     private val applicationID: String = "NWknvuBd7LoFHfXmKNMBcgajXtZEgKUh4V7WNzMidrpUUluDpVYVZx+xT4PCM5Kx"
 
     override fun startDiscoverDevices(shouldIncludeState: Boolean) {
-        asyncTryLog {
+        this.asyncTryLog {
             fun getAttributeValueFunc(jsonObject: JSONObject, displayName: String): String = jsonObject
                     .getJSONArray("Attributes")
                     .toJSONObjectSequence()
@@ -59,18 +59,20 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
     override fun startDiscoverDeviceState(deviceID: String) = this.startDiscoverDevices(true)
 
     override fun startSetDeviceState(deviceID: String, propertyName: String, propertyValue: String) {
-        val attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException()
-        val attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException()
+        this.asyncTryLog {
+            val attributeName = if (propertyName == "openState") "desireddoorstate" else throw IllegalArgumentException()
+            val attributeValue = if (propertyValue == "Open") "1" else if (propertyValue == "Closed") "0" else throw IllegalArgumentException()
 
-        this.performMyQRequestWithLoginHandling(
-                "PUT",
-                "DeviceAttribute/PutDeviceAttribute",
-                mapOf(
-                        "MyQDeviceId" to deviceID,
-                        "AttributeName" to attributeName,
-                        "AttributeValue" to attributeValue
-                )
-        )
+            this.performMyQRequestWithLoginHandling(
+                    "PUT",
+                    "DeviceAttribute/PutDeviceAttribute",
+                    mapOf(
+                            "MyQDeviceId" to deviceID,
+                            "AttributeName" to attributeName,
+                            "AttributeValue" to attributeValue
+                    )
+            )
+        }
     }
 
     private fun performMyQRequestWithLoginHandling(

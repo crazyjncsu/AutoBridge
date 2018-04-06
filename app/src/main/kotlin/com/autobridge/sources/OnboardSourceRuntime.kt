@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.support.annotation.RequiresApi
 import android.util.Base64
 import android.util.Log
@@ -33,7 +34,7 @@ class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : 
 
                 "soundSensor" -> object : SoundAmplitudeSensorRuntime<Boolean>(parameters, listener, DeviceType.SOUND_SENSOR, false) {
                     private val threshold = this.parameters.configuration.optDouble("threshold", this.defaultThreshold)
-                    open val defaultThreshold get() = 65.0
+                    open val defaultThreshold get() = 70.0
                     override val defaultStickyValue: Double get() = 1.0
                     override val defaultReportValueChange: Double get() = 1.0
                     override fun onSampleProduced(sampleValue: Double) = this.onValueSampled(sampleValue > this.threshold)
@@ -72,17 +73,25 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
 
     override fun startSetState(propertyName: String, propertyValue: String) {
         @Suppress("DEPRECATION")
-        this.textToSpeech.speak(propertyValue, TextToSpeech.QUEUE_ADD, null)
+        this.textToSpeech.speak(
+                propertyValue,
+                TextToSpeech.QUEUE_ADD,
+                hashMapOf(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID to "dummy") // required for the utterance progress listener to work
+        )
+
         this.listener.onStateDiscovered(this, propertyName, propertyValue)
     }
 
-    @Suppress("DEPRECATION")
     override fun onInit(p0: Int) {
         this.textToSpeech.setSpeechRate(0.8f)
 
-        this.textToSpeech.setOnUtteranceCompletedListener(object : TextToSpeech.OnUtteranceCompletedListener {
-            override fun onUtteranceCompleted(p0: String?) =
+        this.textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onDone(utteranceId: String?) =
                     this@SpeechSynthesizerRuntime.listener.onStateDiscovered(this@SpeechSynthesizerRuntime, "utterance", "")
+
+            override fun onError(utteranceId: String?) {}
+
+            override fun onStart(utteranceId: String?) {}
         })
     }
 }
@@ -104,7 +113,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
 
     @SuppressLint("MissingPermission")
     override fun startSetState(propertyName: String, propertyValue: String) {
-        asyncTryLog {
+        this.asyncTryLog {
             if (propertyValue == "") {
                 var i = 0;
                 val handler = Handler(Looper.getMainLooper())
@@ -135,7 +144,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                     }
                 }, handler)
 
-                cameraID.let {
+                cameraID?.let {
                     this.cameraManager.openCamera(it, object : CameraDevice.StateCallback() {
                         override fun onOpened(camera: CameraDevice?) {
                             synchronized(objectsToClose) {
@@ -182,7 +191,7 @@ class FlashlightDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Lis
     private var onOrOff = false
 
     override fun startDiscoverState() {
-        asyncTryLog {
+        this.asyncTryLog {
             this@FlashlightDeviceRuntime.listener.onStateDiscovered(
                     this@FlashlightDeviceRuntime,
                     this@FlashlightDeviceRuntime.deviceType.resourceTypes[0].propertyNames[0],
@@ -191,7 +200,7 @@ class FlashlightDeviceRuntime(parameters: DeviceRuntimeParameters, listener: Lis
     }
 
     override fun startSetState(propertyName: String, propertyValue: String) {
-        asyncTryLog {
+        this.asyncTryLog {
             this@FlashlightDeviceRuntime.onOrOff = propertyValue == "true"
 
             this@FlashlightDeviceRuntime.cameraManager.cameraIdList

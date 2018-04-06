@@ -2,29 +2,43 @@ package com.autobridge
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
+import android.app.AlertDialog
+import android.app.Fragment
 import android.content.Intent
+import android.databinding.DataBindingUtil
+import android.databinding.ObservableArrayList
+import android.databinding.ObservableList
+import android.databinding.ViewDataBinding
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.preference.*
 import android.support.v4.content.FileProvider
-import android.util.Log
+import android.support.v4.view.GravityCompat
+import android.support.v4.widget.DrawerLayout
+import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
+import android.view.*
+import android.widget.ArrayAdapter
 import android.widget.TextView
-import kotlinx.android.synthetic.main.main.*
+import android.widget.Toast
+import kotlinx.android.synthetic.main.configuration.*
+import kotlinx.android.synthetic.main.drawer.*
 import java.io.File
 
-class MainActivity : Activity() {
+class MainActivity : NavigationDrawerActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             this.requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.CAMERA), 1)
 
-        this.applicationContext.startService(Intent(this.applicationContext, Service::class.java))
-
-        this.setContentView(R.layout.main)
+        this.applicationContext.startService(Intent(this, Service::class.java))
 
         if (this.intent.action == Intent.ACTION_SEND) {
+            Toast.makeText(this, "Importing configuration...", Toast.LENGTH_LONG).show()
+
             val uri = this.intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
 
             this.contentResolver.openInputStream(uri).use { fromStream ->
@@ -33,34 +47,130 @@ class MainActivity : Activity() {
                 }
             }
 
-            Log.i(TAG, "URI: " + uri.toString())
+            this.stopService(Intent(this, Service::class.java))
+            this.startService(Intent(this, Service::class.java))
+
+            Toast.makeText(this, "Imported configuration and restarted service.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun getMenu(): Int = R.menu.main_drawer
+
+    override fun getDefaultMenuItemId(): Int = R.id.dashboard
+
+    override fun getHeaderViewResource(): Int = R.layout.drawer_header
+
+    override fun createFragmentForMenuItemId(menuItemId: Int): Fragment =
+            when (menuItemId) {
+                R.id.dashboard -> DashboardFragment()
+                R.id.configuration -> ConfigurationFragment()
+                R.id.log -> LogFragment()
+                else -> throw IllegalArgumentException()
+            }
+}
+
+class DashboardFragment : Fragment() {
+//    override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View {
+//        return TextView(this.activity).mutate { it.text = "BOO" }
+//    }
+}
+
+class ConfigurationFragment : Fragment() {
+    override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return inflater!!.inflate(R.layout.configuration, null)
+    }
+
+    override fun onActivityCreated(savedInstanceState: Bundle?) {
+        super.onActivityCreated(savedInstanceState)
+
+        this.setHasOptionsMenu(true)
+
+        deviceContainersListView.adapter = ArrayAdapter(this.activity, android.R.layout.simple_list_item_1, mutableListOf<String>())
+        deviceContainersListView.emptyView = deviceContainersEmptyView
+
+        bridgesListView.adapter = ArrayAdapter(this.activity, android.R.layout.simple_list_item_1, mutableListOf<String>())
+        bridgesListView.emptyView = bridgesEmptyView
+
+        addDeviceContainerButton.setOnClickListener {
+            (deviceContainersListView.adapter as ArrayAdapter<String>).add("boo")
         }
 
-        val file = File(this.filesDir, CONFIGURATION_FILE_NAME)
+        addBridgeButton.setOnClickListener {
+            (bridgesListView.adapter as ArrayAdapter<String>).add("hoo")
+        }
+    }
 
-        if (file.exists())
-            editText.setText(file.readText(), TextView.BufferType.EDITABLE)
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.configuration, menu)
+    }
 
-        exportButton.setOnClickListener {
-            this.stopService(Intent(this, Service::class.java))
-            this.startActivity(Intent.createChooser(
+    @SuppressLint("NewApi")
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+        when (item!!.itemId) {
+            R.id.importConfiguration -> AlertDialog.Builder(this.context)
+                    .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send to\", then select AutoBridge.")
+                    .create()
+                    .show()
+            R.id.exportConfiguration -> this.startActivity(Intent.createChooser(
                     Intent(Intent.ACTION_SEND)
                             .setType("*/*")
                             .putExtra(
                                     Intent.EXTRA_STREAM,
                                     FileProvider.getUriForFile(
-                                            this.applicationContext,
+                                            this.context,
                                             this.javaClass.`package`.name,
-                                            File(this.filesDir, STATE_FILE_NAME)
+                                            File(this.context.filesDir, CONFIGURATION_FILE_NAME)
                                     )
                             ),
                     "Export"
             ))
         }
 
-        saveButton.setOnClickListener {
-            // Log.v(TAG, editText.text.toString())
-            File(this.filesDir, CONFIGURATION_FILE_NAME).writeText(editText.text.toString())
+        return true
+    }
+}
+
+class LogFragment : Fragment(), RuntimeBase.Listener {
+    override fun onLogEntryProduced(entry: LogEntry) {
+        this.activity.runOnUiThread {
+            val recyclerView = this.view.to<RecyclerView>()
+            val viewAdapter = recyclerView.adapter.to<ObservableListViewAdapter<LogEntry>>()
+            viewAdapter.list.add(entry)
+            recyclerView.smoothScrollToPosition(viewAdapter.itemCount - 1)
         }
+    }
+
+    override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        return RecyclerView(this.activity)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) =
+            inflater.inflate(R.menu.log, menu)
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.clear -> this.view.to<RecyclerView>().adapter.to<ObservableListViewAdapter<LogEntry>>().list.clear()
+        }
+
+        return true
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        this.setHasOptionsMenu(true)
+
+        this.view.to<RecyclerView>().apply {
+            layoutManager = LinearLayoutManager(this@LogFragment.activity)
+            adapter = ObservableListViewAdapter(ObservableArrayList<LogEntry>(), R.layout.log_row, BR.data)
+        }
+
+        Service.instance?.let { it.addListener(this) }
+    }
+
+    override fun onStop() {
+        super.onStop()
+
+        Service.instance?.let { it.removeListener(this) }
     }
 }
