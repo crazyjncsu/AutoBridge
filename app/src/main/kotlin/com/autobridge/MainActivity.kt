@@ -1,31 +1,20 @@
 package com.autobridge
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.Fragment
 import android.content.Intent
-import android.databinding.DataBindingUtil
-import android.databinding.ObservableArrayList
 import android.databinding.ObservableList
-import android.databinding.ViewDataBinding
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.preference.*
 import android.support.v4.content.FileProvider
-import android.support.v4.view.GravityCompat
-import android.support.v4.widget.DrawerLayout
-import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
-import android.util.Log
 import android.view.*
 import android.widget.ArrayAdapter
-import android.widget.TextView
 import android.widget.Toast
 import kotlinx.android.synthetic.main.configuration.*
-import kotlinx.android.synthetic.main.drawer.*
 import java.io.File
 
 class MainActivity : NavigationDrawerActivity() {

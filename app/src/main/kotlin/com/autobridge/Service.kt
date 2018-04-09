@@ -10,14 +10,13 @@ import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.File
-import java.lang.ref.WeakReference
 import java.net.InetAddress
 import java.util.*
 
 
 class Service : PersistentService(), NetworkDiscoverer.Listener, BridgeRuntime.Listener {
     private var multicastLock: MulticastLock? = null
-    private var bridgeRuntime: BridgeRuntime? = null;
+    private var bridgeRuntime: BridgeRuntime? = null
 
     private val ssdpServer = SsdpServer(object : SsdpServer.Listener {
         override fun onSearch(st: String): List<SsdpServer.Listener.SearchResponse> =

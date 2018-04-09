@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.*
-import com.android.*
 import com.autobridge.*
 
 abstract class UsbContactClosureBoardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ContactClosureBoardSourceRuntime(parameters, listener) {
@@ -165,8 +164,8 @@ class UsbCdcContactClosureBoardSourceRuntime(parameters: RuntimeParameters, list
         val responseText = this.performSynchronizedRequest(usbInfo, "gpio read ${this.getContactIndexString(contactID)}\r")
 
         return when (responseText.split("\n\r")[1]) {
-            "1" -> true
-            "0" -> false
+            "1" -> false
+            "0" -> true
             else -> throw IllegalStateException()
         }
     }

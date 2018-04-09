@@ -17,9 +17,9 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.support.annotation.RequiresApi
 import android.util.Base64
-import android.util.Log
-import com.android.*
-import com.autobridge.*
+import com.autobridge.DeviceType
+import com.autobridge.RuntimeParameters
+import com.autobridge.SoundLevelSampler
 
 class OnboardSourceRuntime(parameters: RuntimeParameters, listener: Listener) : ConfigurationDeviceSourceRuntime(parameters, listener) {
     @TargetApi(Build.VERSION_CODES.M)
@@ -124,16 +124,16 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                         .filter { (it.second.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) == this.frontOrBack }
                         .first()
 
-                var i = 0;
+                var i = 0
                 val handler = Handler(Looper.getMainLooper())
 
-                var size = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                val size = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                         .getOutputSizes(ImageFormat.JPEG)
                         .sortedBy { it.width }
                         .last()
 
                 val imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 30)
-                var objectsToClose = mutableListOf<AutoCloseable>(imageReader)
+                val objectsToClose = mutableListOf<AutoCloseable>(imageReader)
 
                 fun cleanup() {
                     synchronized(objectsToClose) {
@@ -141,7 +141,7 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                     }
                 }
 
-                imageReader.setOnImageAvailableListener(ImageReader.OnImageAvailableListener {
+                imageReader.setOnImageAvailableListener({
                     it.acquireLatestImage().use {
                         if (i++ > 30) {
                             val bytes = ByteArray(it.planes[0].buffer.remaining())
@@ -237,21 +237,21 @@ abstract class SensorRuntime<ValueType>(parameters: DeviceRuntimeParameters, lis
 
     protected fun onValueSampled(sampledValue: ValueType) {
         val currentTickCount = System.currentTimeMillis()
-        var sampledDoubleValue = this.convertToDouble(sampledValue)
+        val sampledDoubleValue = this.convertToDouble(sampledValue)
 
         fun getReportValueAction(): Int {
             if (this.lastReportedTickCount == 0L)
-                return 1;
+                return 1
 
             if (this.lastReportedDoubleValue == this.stickyValue && currentTickCount - lastReportedTickCount <= this.stickyMillisecondCount)
-                return 2;
+                return 2
 
             if ((this.reportIntervalMillisecondCount != 0L && currentTickCount - this.lastReportedTickCount >= this.reportIntervalMillisecondCount)
                     || (this.reportPercentageChange != 0.0 && Math.abs((this.lastReportedDoubleValue - sampledDoubleValue) / this.lastReportedDoubleValue) >= this.reportPercentageChange)
                     || (this.reportValueChange != 0.0 && Math.abs(this.lastReportedDoubleValue - sampledDoubleValue) >= this.reportValueChange))
-                return 1;
+                return 1
 
-            return 0;
+            return 0
         }
 
         when (getReportValueAction()) {

@@ -1,6 +1,5 @@
 package com.autobridge.sources
 
-import com.android.*
 import com.autobridge.*
 import org.json.JSONObject
 import java.io.IOException

@@ -20,15 +20,13 @@ class NetworkDiscoverer(val listener: Listener) {
                     .flatMap<InterfaceAddress, Inet4Address> {
                         val subnetBitCount = 32 - it.networkPrefixLength
                         val subnetBaseAddress = (it.address.address.map { it.toUnsignedInt().toLong() }.reduce { acc, byte -> acc shl 8 or byte } and (0xFFFFFFFF shl subnetBitCount)).toInt()
-                        (0..(1 shl subnetBitCount) - 1).map {
+                        (0 until (1 shl subnetBitCount)).map {
                             InetAddress.getByAddress(ByteBuffer.allocate(4).putInt(subnetBaseAddress or it).array()) as Inet4Address
                         }
                     }
 
             val results = executor.invokeAll(subnetAddresses.map {
-                object : Callable<Boolean> {
-                    override fun call(): Boolean = Runtime.getRuntime().exec("ping -c 1 " + it.hostAddress).waitFor() == 0
-                }
+                Callable<Boolean> { Runtime.getRuntime().exec("ping -c 1 " + it.hostAddress).waitFor() == 0 }
             }).map { it.get() }
 
             val mappings = File("/proc/net/arp")

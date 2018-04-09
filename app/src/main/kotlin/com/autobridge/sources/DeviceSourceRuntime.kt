@@ -1,7 +1,6 @@
 package com.autobridge.sources
 
 import android.content.Context
-import com.android.*
 import com.autobridge.*
 import org.json.JSONObject
 import java.util.*

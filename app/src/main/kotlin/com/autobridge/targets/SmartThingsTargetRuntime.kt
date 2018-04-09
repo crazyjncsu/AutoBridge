@@ -1,9 +1,8 @@
 package com.autobridge.targets
 
-import com.android.*
 import com.autobridge.*
-import org.json.JSONObject
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.InetAddress
 
 private val standardToSmartThingsMap = mapOf(

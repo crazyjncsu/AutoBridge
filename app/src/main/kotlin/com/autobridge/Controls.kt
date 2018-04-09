@@ -1,12 +1,10 @@
 package com.autobridge
 
-import android.annotation.SuppressLint
 import android.app.Fragment
 import android.databinding.DataBindingUtil
 import android.databinding.ObservableList
 import android.databinding.ViewDataBinding
 import android.os.Bundle
-import android.preference.*
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
 import android.support.v7.app.AppCompatActivity
@@ -14,7 +12,6 @@ import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.ViewGroup
-import android.widget.TextView
 import kotlinx.android.synthetic.main.drawer.*
 
 abstract class NavigationDrawerActivity : AppCompatActivity() {
@@ -98,7 +95,7 @@ class ObservableListViewAdapter<T>(val list: ObservableList<T>, val layout: Int,
     override fun onBindViewHolder(holder: ViewHolder<T>, position: Int) = holder.bind(this.list[position])
 }
 
-class ViewHolder<T>(val viewDataBinding: ViewDataBinding, val bindingVariable: Int) : RecyclerView.ViewHolder(viewDataBinding.root) {
+class ViewHolder<in T>(val viewDataBinding: ViewDataBinding, val bindingVariable: Int) : RecyclerView.ViewHolder(viewDataBinding.root) {
     fun bind(data: T) {
         this.viewDataBinding.setVariable(this.bindingVariable, data)
         this.viewDataBinding.executePendingBindings()

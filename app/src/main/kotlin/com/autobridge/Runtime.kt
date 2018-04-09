@@ -1,7 +1,6 @@
 package com.autobridge
 
 import android.content.Context
-import android.util.Log
 import com.autobridge.sources.DeviceSourceRuntime
 import com.autobridge.targets.DeviceTargetRuntime
 import org.json.JSONArray
@@ -13,7 +12,7 @@ class DeviceDefinition(val id: String, val type: DeviceType, val name: String)
 
 open class RuntimeParameters(val id: String, val configuration: JSONObject, val state: JSONObject)
 
-abstract class RuntimeBase<TListener : RuntimeBase.Listener>(val parameters: RuntimeParameters, val listener: TListener) {
+abstract class RuntimeBase<out TListener : RuntimeBase.Listener>(val parameters: RuntimeParameters, val listener: TListener) {
     open fun startOrStop(startOrStop: Boolean, context: Context) {}
     open fun processMessage(message: JSONObject) {}
     open fun processMacAddressDiscovered(ipAddress: InetAddress, macAddress: ByteArray) {}
@@ -33,7 +32,7 @@ abstract class RuntimeBase<TListener : RuntimeBase.Listener>(val parameters: Run
             this.onLogEntryProduced(LogEntry(arrayOf(contextItem), message))
 
     fun onLogEntry(message: String) =
-            this.onLogEntryProduced(LogEntry(arrayOf<Any>(), message))
+            this.onLogEntryProduced(LogEntry(arrayOf(), message))
 
     fun onLogEntryProduced(entry: LogEntry) =
             this.listener.onLogEntryProduced(entry.withContext(this))

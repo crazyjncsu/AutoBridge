@@ -63,9 +63,7 @@ fun performJsonHttpRequest(
 }
 
 fun async(proc: () -> Unit) {
-    THREAD_POOL.execute(object : Runnable {
-        override fun run() = proc()
-    })
+    THREAD_POOL.execute { proc() }
 }
 
 fun tryLog(proc: () -> Unit) {

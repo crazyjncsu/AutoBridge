@@ -11,19 +11,17 @@ class SoundLevelSampler {
     private val listeners = ArrayList<Listener>()
     private val mediaRecorder = MediaRecorder()
 
-    private val thread = Thread(object : Runnable {
-        override fun run() {
-            synchronized(this@SoundLevelSampler.syncLock) {
-                while (this@SoundLevelSampler.listeners.count() != 0) {
-                    tryLog {
-                        val spl = Math.round(20 * Math.log10((this@SoundLevelSampler.mediaRecorder.maxAmplitude / 51805.5336) / 0.00002)).toDouble()
-                        this@SoundLevelSampler.listeners.forEach { it.onSampleProduced(spl) }
-                        this@SoundLevelSampler.syncLock.wait(250)
-                    }
+    private val thread = Thread(Runnable {
+        synchronized(this@SoundLevelSampler.syncLock) {
+            while (this@SoundLevelSampler.listeners.count() != 0) {
+                tryLog {
+                    val spl = Math.round(20 * Math.log10((this@SoundLevelSampler.mediaRecorder.maxAmplitude / 51805.5336) / 0.00002)).toDouble()
+                    this@SoundLevelSampler.listeners.forEach { it.onSampleProduced(spl) }
+                    this@SoundLevelSampler.syncLock.wait(250)
                 }
-
-                tryLog { this@SoundLevelSampler.mediaRecorder.stop() }
             }
+
+            tryLog { this@SoundLevelSampler.mediaRecorder.stop() }
         }
     })
 

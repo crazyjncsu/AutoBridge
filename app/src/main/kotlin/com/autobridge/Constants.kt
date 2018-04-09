@@ -6,15 +6,15 @@ import java.util.concurrent.Executors
 
 class ConfigurationFileProvider : FileProvider()
 
-val TAG = "AutoBridge"
-val USB_PERMISSION = "com.android.example.USB_PERMISSION"
+const val TAG = "AutoBridge"
+const val USB_PERMISSION = "com.android.example.USB_PERMISSION"
 
 val THREAD_POOL = Executors.newCachedThreadPool()
 
-val CONFIGURATION_FILE_NAME = "configuration.json"
-val STATE_FILE_NAME = "state.json"
+const val CONFIGURATION_FILE_NAME = "configuration.json"
+const val STATE_FILE_NAME = "state.json"
 
-val USB_TIMEOUT = 1_000
+const val USB_TIMEOUT = 1_000
 
 var DEFAULT_CHARSET = Charset.forName("UTF-8")
 
