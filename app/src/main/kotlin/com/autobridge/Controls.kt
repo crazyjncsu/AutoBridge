@@ -79,7 +79,7 @@ class ObservableListViewAdapter<T>(val list: ObservableList<T>, val layout: Int,
         })
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup?, viewType: Int): ViewHolder<T> =
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder<T> =
             ViewHolder(
                     DataBindingUtil.inflate<ViewDataBinding>(
                             LayoutInflater.from(parent!!.context),

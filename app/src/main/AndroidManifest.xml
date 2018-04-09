@@ -19,8 +19,6 @@
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
-    <uses-feature android:name="android.hardware.camera2.full" />
-
     <application
         android:name=".Application"
         android:allowBackup="true"
@@ -48,7 +46,6 @@
                 <data android:mimeType="application/json" />
             </intent-filter>
         </activity>
-        <activity android:name=".TestActivity"></activity>
 
         <provider
             android:name=".ConfigurationFileProvider"
