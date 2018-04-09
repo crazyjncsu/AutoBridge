@@ -69,7 +69,9 @@ class SpeechSynthesizerRuntime(parameters: DeviceRuntimeParameters, listener: Li
 
     }
 
-    override fun startDiscoverState() {}
+    override fun startDiscoverState() {
+        this@SpeechSynthesizerRuntime.listener.onStateDiscovered(this@SpeechSynthesizerRuntime, "utterance", "")
+    }
 
     override fun startSetState(propertyName: String, propertyValue: String) {
         @Suppress("DEPRECATION")
@@ -109,22 +111,28 @@ abstract class CameraManagerDeviceRuntime(parameters: DeviceRuntimeParameters, l
 
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val frontOrBack: Boolean) : CameraManagerDeviceRuntime(parameters, listener, DeviceType.CAMERA) {
-    override fun startDiscoverState() {}
+    override fun startDiscoverState() {
+        this.listener.onStateDiscovered(this, "image", "")
+    }
 
     @SuppressLint("MissingPermission")
     override fun startSetState(propertyName: String, propertyValue: String) {
         this.asyncTryLog {
             if (propertyValue == "") {
+                val (cameraID, characteristics) = this.cameraManager.cameraIdList
+                        .map { Pair(it, this.cameraManager.getCameraCharacteristics(it)) }
+                        .filter { (it.second.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) == this.frontOrBack }
+                        .first()
+
                 var i = 0;
                 val handler = Handler(Looper.getMainLooper())
 
-                val cameraID = this.cameraManager.cameraIdList
-                        .map { Pair(it, this.cameraManager.getCameraCharacteristics(it)) }
-                        .filter { (it.second.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) == this.frontOrBack }
-                        .map { it.first }
-                        .firstOrNull()
+                var size = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                        .getOutputSizes(ImageFormat.JPEG)
+                        .sortedBy { it.width }
+                        .last()
 
-                val imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 30)
+                val imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 30)
                 var objectsToClose = mutableListOf<AutoCloseable>(imageReader)
 
                 fun cleanup() {
@@ -144,44 +152,42 @@ class CameraRuntime(parameters: DeviceRuntimeParameters, listener: Listener, val
                     }
                 }, handler)
 
-                cameraID?.let {
-                    this.cameraManager.openCamera(it, object : CameraDevice.StateCallback() {
-                        override fun onOpened(camera: CameraDevice?) {
-                            synchronized(objectsToClose) {
-                                objectsToClose.add(camera!!)
+                this.cameraManager.openCamera(cameraID, object : CameraDevice.StateCallback() {
+                    override fun onOpened(camera: CameraDevice?) {
+                        synchronized(objectsToClose) {
+                            objectsToClose.add(camera!!)
+                        }
+
+                        camera!!.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
+                            override fun onConfigureFailed(session: CameraCaptureSession?) {
+                                this@CameraRuntime.onLogEntry("Camera configure failed")
+                                cleanup()
                             }
 
-                            camera!!.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
-                                override fun onConfigureFailed(session: CameraCaptureSession?) {
-                                    this@CameraRuntime.onLogEntry("Camera configure failed")
-                                    cleanup()
+                            override fun onConfigured(session: CameraCaptureSession?) {
+                                synchronized(objectsToClose) {
+                                    objectsToClose.add(session!!)
                                 }
 
-                                override fun onConfigured(session: CameraCaptureSession?) {
-                                    synchronized(objectsToClose) {
-                                        objectsToClose.add(session!!)
-                                    }
+                                val builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                                builder.set(CaptureRequest.JPEG_ORIENTATION, this@CameraRuntime.cameraManager.getCameraCharacteristics(cameraID).get(CameraCharacteristics.SENSOR_ORIENTATION))
+                                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON) // auto-exposure
+                                builder.addTarget(imageReader.surface)
+                                session!!.setRepeatingRequest(builder.build(), null, handler)
+                            }
+                        }, handler)
+                    }
 
-                                    val builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-                                    builder.set(CaptureRequest.JPEG_ORIENTATION, this@CameraRuntime.cameraManager.getCameraCharacteristics(cameraID).get(CameraCharacteristics.SENSOR_ORIENTATION))
-                                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON) // auto-exposure
-                                    builder.addTarget(imageReader.surface)
-                                    session!!.setRepeatingRequest(builder.build(), null, handler)
-                                }
-                            }, handler)
-                        }
+                    override fun onDisconnected(camera: CameraDevice?) {
+                        this@CameraRuntime.onLogEntry("Camera disconnected")
+                        cleanup()
+                    }
 
-                        override fun onDisconnected(camera: CameraDevice?) {
-                            this@CameraRuntime.onLogEntry("Camera disconnected")
-                            cleanup()
-                        }
-
-                        override fun onError(camera: CameraDevice?, error: Int) {
-                            this@CameraRuntime.onLogEntry("Camera error")
-                            cleanup()
-                        }
-                    }, handler)
-                }
+                    override fun onError(camera: CameraDevice?, error: Int) {
+                        this@CameraRuntime.onLogEntry("Camera error")
+                        cleanup()
+                    }
+                }, handler)
             }
         }
     }

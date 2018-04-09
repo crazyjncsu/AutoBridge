@@ -128,7 +128,7 @@ class UsbHidContactClosureBoardSourceRuntime(parameters: RuntimeParameters, list
         val result = usbInfo.deviceConnection.controlTransfer(0xA0, 1, 0, 0, array, 8, USB_TIMEOUT)
         this.onLogEntry("Performed controlTransfer read with result $result and array filled as ${array.toHexString()}")
 
-        return array[7].toUnsignedInt() shr (pinNumber - 1) and 1 == 1
+        return array[7].toUnsignedInt() shr (pinNumber - 1) and 1 == 0
     }
 
     override fun setContactState(usbInfo: UsbInfo, contactID: String, openOrClosed: Boolean) {

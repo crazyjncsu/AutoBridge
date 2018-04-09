@@ -19,6 +19,8 @@
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
+    <uses-feature android:name="android.hardware.camera2.full" />
+
     <application
         android:name=".Application"
         android:allowBackup="true"
@@ -35,8 +37,7 @@
             </intent-filter>
         </receiver>
 
-        <activity
-            android:name=".MainActivity">
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
