@@ -19,6 +19,8 @@ private val standardToSmartThingsMap = mapOf(
 
         Triple(DeviceType.WINDOW_SHADE, "openState", "Open") to Pair("windowShade", "open"),
         Triple(DeviceType.WINDOW_SHADE, "openState", "Closed") to Pair("windowShade", "closed"),
+        Triple(DeviceType.WINDOW_SHADE, "value", "false") to Pair("contact", "open"),
+        Triple(DeviceType.WINDOW_SHADE, "value", "true") to Pair("contact", "closed"),
 
         Triple(DeviceType.LIGHT, "value", "true") to Pair("switch", "on"),
         Triple(DeviceType.LIGHT, "value", "false") to Pair("switch", "off"),
