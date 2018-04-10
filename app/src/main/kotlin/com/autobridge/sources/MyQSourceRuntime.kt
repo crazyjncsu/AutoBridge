@@ -33,7 +33,7 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
 
                             val state = mapOf(
                                     "openState" to if (isClosed) "Closed" else "Open",
-                                    "value" to if (isClosed) "false" else "true"
+                                    "value" to if (isClosed) "true" else "false"
                             )
                         }
                     }
@@ -84,7 +84,8 @@ class MyQSourceRuntime(parameters: RuntimeParameters, listener: Listener) : Poll
         while (true) {
             val responseObject = this.performMyQRequest(method, pathPart, bodyMap)
 
-            if (responseObject.optString("error") != "-33336" && responseObject.optString("ReturnCode") != "216")
+            //if (responseObject.optString("error") != "-33336" && responseObject.optString("ReturnCode") != "216")
+            if (responseObject.optString("ReturnCode") == "0")
                 return responseObject
 
             if (attemptCount++ > 4)

@@ -13,6 +13,7 @@ import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.ViewGroup
 import kotlinx.android.synthetic.main.drawer.*
+import java.io.Closeable
 
 abstract class NavigationDrawerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,14 +70,22 @@ abstract class NavigationDrawerActivity : AppCompatActivity() {
 }
 
 class ObservableListViewAdapter<T>(val list: ObservableList<T>, val layout: Int, val bindingVariable: Int) : RecyclerView.Adapter<ViewHolder<T>>() {
-    init {
-        this.list.addOnListChangedCallback(object : ObservableList.OnListChangedCallback<ObservableList<T>>() {
-            override fun onChanged(sender: ObservableList<T>?) = notifyDataSetChanged()
-            override fun onItemRangeRemoved(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeRemoved(positionStart, itemCount)
-            override fun onItemRangeMoved(sender: ObservableList<T>?, fromPosition: Int, toPosition: Int, itemCount: Int) = notifyDataSetChanged()
-            override fun onItemRangeInserted(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeInserted(positionStart, itemCount)
-            override fun onItemRangeChanged(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeChanged(positionStart, itemCount)
-        })
+    private val listChangedCallback = object : ObservableList.OnListChangedCallback<ObservableList<T>>() {
+        override fun onChanged(sender: ObservableList<T>?) = notifyDataSetChanged()
+        override fun onItemRangeRemoved(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeRemoved(positionStart, itemCount)
+        override fun onItemRangeMoved(sender: ObservableList<T>?, fromPosition: Int, toPosition: Int, itemCount: Int) = notifyDataSetChanged()
+        override fun onItemRangeInserted(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeInserted(positionStart, itemCount)
+        override fun onItemRangeChanged(sender: ObservableList<T>?, positionStart: Int, itemCount: Int) = notifyItemRangeChanged(positionStart, itemCount)
+    }
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        this.list.addOnListChangedCallback(this.listChangedCallback)
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        this.list.removeOnListChangedCallback(this.listChangedCallback)
+        super.onDetachedFromRecyclerView(recyclerView)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder<T> =

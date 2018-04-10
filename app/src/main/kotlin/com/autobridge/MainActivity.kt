@@ -120,9 +120,9 @@ class ConfigurationFragment : Fragment() {
 }
 
 class LogFragment : Fragment() {
-    val logEntries get() = this.activity.application.to<Application>().logEntries
+    private val logEntries get() = this.activity.application.to<Application>().logEntries
 
-    val listChangedCallback = object : ObservableList.OnListChangedCallback<ObservableList<LogEntry>>() {
+    private val listChangedCallback = object : ObservableList.OnListChangedCallback<ObservableList<LogEntry>>() {
         override fun onItemRangeInserted(sender: ObservableList<LogEntry>, positionStart: Int, itemCount: Int) =
                 this@LogFragment.view.to<RecyclerView>().scrollToPosition(sender.size - 1)
 
@@ -141,7 +141,8 @@ class LogFragment : Fragment() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.clear -> this.logEntries.clear()
+            R.id.clearLog -> this.logEntries.clear()
+            //R.id.shareLog ->
         }
 
         return true
@@ -161,8 +162,13 @@ class LogFragment : Fragment() {
     }
 
     override fun onStop() {
-        super.onStop()
+        this.view.to<RecyclerView>().apply {
+            layoutManager = null
+            adapter = null // necessary for it to remove handlers
+        }
 
         this.logEntries.removeOnListChangedCallback(this.listChangedCallback)
+
+        super.onStop()
     }
 }

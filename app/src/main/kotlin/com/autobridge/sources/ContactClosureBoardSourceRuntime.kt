@@ -51,7 +51,7 @@ abstract class ContactClosureBoardSourceRuntime(parameters: RuntimeParameters, l
 
         private fun onOpenStateDiscovered(openState: String) {
             this.listener.onStateDiscovered(this, this.openStatePropertyName, openState)
-            this.listener.onStateDiscovered(this, "value", if (this.isOpen(openState)) "true" else "false")
+            this.listener.onStateDiscovered(this, "value", if (this.isOpen(openState)) "false" else "true")
         }
     }
 
