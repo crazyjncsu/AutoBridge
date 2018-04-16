@@ -3,12 +3,15 @@ package com.autobridge
 import android.Manifest
 import android.app.AlertDialog
 import android.app.Fragment
+import android.content.ContentResolver
 import android.content.Intent
+import android.databinding.ObservableArrayList
 import android.databinding.ObservableList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.support.v4.content.FileProvider
+import android.support.v7.widget.GridLayoutManager
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.view.*
@@ -75,14 +78,16 @@ class ConfigurationFragment : Fragment() {
 
         this.setHasOptionsMenu(true)
 
-        deviceContainersListView.adapter = ArrayAdapter(this.activity, android.R.layout.simple_list_item_1, mutableListOf<String>())
-        deviceContainersListView.emptyView = deviceContainersEmptyView
+        deviceContainersGridView.layoutManager = GridLayoutManager(this.activity, 4)
+        deviceContainersGridView.adapter = ObservableListAdapter(ObservableArrayList<ConfigurationItem>(), R.layout.device_container_cell, BR.data)
+
+        //deviceContainersGridView.emptyView = deviceContainersEmptyView
 
         bridgesListView.adapter = ArrayAdapter(this.activity, android.R.layout.simple_list_item_1, mutableListOf<String>())
         bridgesListView.emptyView = bridgesEmptyView
 
         addDeviceContainerButton.setOnClickListener {
-            (deviceContainersListView.adapter as ArrayAdapter<String>).add("boo")
+            (deviceContainersGridView.adapter as ObservableListAdapter<ConfigurationItem>).list.add(ConfigurationItem("name", "type"))
         }
 
         addBridgeButton.setOnClickListener {
@@ -97,27 +102,17 @@ class ConfigurationFragment : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
         when (item!!.itemId) {
             R.id.importConfiguration -> AlertDialog.Builder(this.activity)
-                    .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send a copy\", then select AutoBridge.")
+                    .setMessage("Importing needs to be invoked from the application from which you would like to import from. For example, using Google Drive, view the document you'd like to import, then click \"Send a copy\" to select AutoBridge.")
                     .create()
                     .show()
-            R.id.exportConfiguration -> this.startActivity(Intent.createChooser(
-                    Intent(Intent.ACTION_SEND)
-                            .setType("*/*")
-                            .putExtra(
-                                    Intent.EXTRA_STREAM,
-                                    FileProvider.getUriForFile(
-                                            this.activity,
-                                            this.javaClass.`package`.name,
-                                            File(this.activity.filesDir, CONFIGURATION_FILE_NAME)
-                                    )
-                            ),
-                    "Export"
-            ))
+            R.id.exportConfiguration -> this.startActivity(ContentProvider.createChooserIntent("Export Configuration", "/configuration"))
         }
 
         return true
     }
 }
+
+data class ConfigurationItem(val name: String, val type: String)
 
 class LogFragment : Fragment() {
     private val logEntries get() = this.activity.application.to<Application>().logEntries
@@ -142,7 +137,7 @@ class LogFragment : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.clearLog -> this.logEntries.clear()
-            //R.id.shareLog ->
+            R.id.shareLog -> this.startActivity(ContentProvider.createChooserIntent("Share Log", "/log"))
         }
 
         return true
@@ -155,7 +150,7 @@ class LogFragment : Fragment() {
 
         this.view.to<RecyclerView>().apply {
             layoutManager = LinearLayoutManager(this@LogFragment.activity)
-            adapter = ObservableListViewAdapter(this@LogFragment.logEntries, R.layout.log_row, BR.data)
+            adapter = ObservableListAdapter(this@LogFragment.logEntries, R.layout.log_row, BR.data)
         }
 
         this.logEntries.addOnListChangedCallback(this.listChangedCallback)

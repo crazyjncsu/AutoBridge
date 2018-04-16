@@ -4,8 +4,6 @@ import android.support.v4.content.FileProvider
 import java.nio.charset.Charset
 import java.util.concurrent.Executors
 
-class ConfigurationFileProvider : FileProvider()
-
 const val TAG = "AutoBridge"
 const val USB_PERMISSION = "com.android.example.USB_PERMISSION"
 
@@ -19,9 +17,9 @@ const val USB_TIMEOUT = 1_000
 var DEFAULT_CHARSET = Charset.forName("UTF-8")
 
 enum class DeviceType(val ocfDeviceType: String, val displayName: String, val resourceTypes: Array<ResourceType>) {
-    GARAGE_DOOR_OPENER("com.autobridge.d.garageDoorOpener", "Garage Door Opener", arrayOf(ResourceType.OPENER, ResourceType.CONTACT_SENSOR)),
-    DOOR_OPENER("com.autobridge.d.doorOpener", "Door Opener", arrayOf(ResourceType.OPENER, ResourceType.CONTACT_SENSOR)),
-    WINDOW_SHADE("com.autobridge.d.windowShade", "Window Shade", arrayOf(ResourceType.OPENER, ResourceType.CONTACT_SENSOR)),
+    GARAGE_DOOR_OPENER("com.autobridge.d.garageDoorOpener", "Garage Door Opener", arrayOf(ResourceType.OPENER)),
+    DOOR_OPENER("com.autobridge.d.doorOpener", "Door Opener", arrayOf(ResourceType.OPENER)),
+    WINDOW_SHADE("com.autobridge.d.windowShade", "Window Shade", arrayOf(ResourceType.OPENER)),
     SPEECH_SYNTHESIZER("com.autobridge.d.speechSynthesizer", "Speech Synthesizer", arrayOf(ResourceType.SPEECH_TTS)),
     CAMERA("com.autobridge.d.camera", "Camera", arrayOf(ResourceType.IMAGE_CAPTURE)),
     LIGHT("com.autobridge.d.light", "Light", arrayOf(ResourceType.BINARY_SWITCH)),
